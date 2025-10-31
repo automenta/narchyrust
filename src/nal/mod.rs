@@ -12,7 +12,8 @@ use crate::term::Term;
 use crate::truth::Truth;
 use crate::task::{Task, Punctuation, Time, Budget, TaskBuilder};
 use crate::concept::TaskConcept;
-use crate::memory::Memory;
+use crate::memory::serial::Memory;
+use crate::bag::Bag;
 use std::sync::atomic::{AtomicU64, Ordering};
 use rand::seq::SliceRandom;
 
@@ -72,41 +73,20 @@ impl NAR {
     
     /// Get a concept by term
     pub fn concept(&self, term: &Term) -> Option<&TaskConcept> {
-        // Since memory returns TaskConcept by value, we can't return a reference
-        // This is a limitation of our current implementation
-        // We need to make memory store concepts in a way that allows borrowing
-        // For now we'll return None, but in a real implementation this would get a reference
-        unimplemented!("Memory needs to be restructured to return references")
+        self.memory.get_concept(term)
     }
     
     /// Get a mutable reference to a concept by term
     pub fn concept_mut(&mut self, term: &Term) -> Option<&mut TaskConcept> {
-        // Same issue here
-        unimplemented!("Memory needs to be restructured to return references")
+        self.memory.get_concept_mut(term)
     }
     
     /// Input a task into the system
     pub fn input(&mut self, task: Task) {
-        // Add the task to its concept
-        // Since memory returns TaskConcept by value, we need to work differently
-        let term = task.term().clone();
-        if let Some(mut concept) = self.memory.get_concept(&term) {
-            concept.add_task(task.clone());
-            self.memory.add_concept(concept);
-        } else {
-            let mut concept = crate::concept::TaskConcept::new(term);
-            concept.add_task(task.clone());
-            self.memory.add_concept(concept);
-        }
-        
-        // Create links for this task
-        self.memory.create_links(&task);
-        
-        // Increase concept activation
-        if let Some(mut concept) = self.memory.get_concept(task.term()) {
-            concept.increase_activation(0.1);
-            self.memory.add_concept(concept);
-        }
+        let concept = self.memory.get_or_create_concept(task.term());
+        concept.add_task(task);
+        concept.increase_activation(0.1);
+        // TODO: Implement link creation
     }
     
     /// Input a sentence as a string and create a task
@@ -331,30 +311,16 @@ impl NAR {
         // Advance time
         self.step();
         
-        // Get active concepts based on attention parameters
-        let active_concepts: Vec<TaskConcept> = self.memory
-            .active_concepts(self.attention.min_attention_threshold)
-            .into_iter()
-            .collect();
-        
-        // Sort concepts by activation (descending)
-        let mut sorted_concepts = active_concepts;
-        sorted_concepts.sort_by(|a, b| {
-            b.activation().partial_cmp(&a.activation()).unwrap()
-        });
-        
-        // Select concepts for inference
-        let selected_concepts = if sorted_concepts.len() > self.attention.inference_concept_count {
-            &sorted_concepts[..self.attention.inference_concept_count]
-        } else {
-            &sorted_concepts
-        };
+        let mut concept_bag = Bag::new(self.attention.inference_concept_count);
+        for concept in self.memory.concepts() {
+            concept_bag.add(concept.clone());
+        }
         
         // Collect tasks to process
         let mut tasks_to_process = Vec::new();
         
         // Process each selected concept
-        for concept in selected_concepts {
+        while let Some(concept) = concept_bag.take() {
             // Get the best belief and goal from the concept
             if let Some(best_belief) = concept.best_belief(None) {
                 tasks_to_process.push(best_belief.clone());
@@ -391,26 +357,16 @@ impl NAR {
     
     /// Process inference with a task against other concepts
     fn process_inference_with_concept(&mut self, task: Task) {
-        // Get active concepts
-        let active_concepts: Vec<TaskConcept> = self.memory
-            .active_concepts(self.attention.min_attention_threshold)
-            .into_iter()
-            .collect();
-        
-        // Sort concepts by activation (descending)
-        let mut sorted_concepts = active_concepts;
-        sorted_concepts.sort_by(|a, b| {
-            b.activation().partial_cmp(&a.activation()).unwrap()
-        });
-        
-        // Limit the number of concepts to process
-        let max_concepts = self.attention.inference_concept_count.min(sorted_concepts.len());
+        let mut concept_bag = Bag::new(self.attention.inference_concept_count);
+        for concept in self.memory.concepts() {
+            concept_bag.add(concept.clone());
+        }
         
         // Collect tasks to process
         let mut tasks_to_compare = Vec::new();
         
         // Process with a limited number of concepts
-        for concept in sorted_concepts.into_iter().take(max_concepts) {
+        while let Some(concept) = concept_bag.take() {
             // Skip if it's the same concept
             if concept.term() == task.term() {
                 continue;
@@ -439,9 +395,7 @@ impl NAR {
             let task_clone = task.clone();
             
             // Get a random concept term
-            let all_concepts: Vec<TaskConcept> = self.memory.concepts()
-                .into_iter()
-                .collect();
+            let all_concepts: Vec<&TaskConcept> = self.memory.concepts();
                 
             if let Some(random_concept) = all_concepts.choose(&mut rand::thread_rng()) {
                 // Skip if it's the same concept
@@ -463,16 +417,18 @@ impl NAR {
     }
     
     /// Get all concepts
-    pub fn concepts(&self) -> Vec<TaskConcept> {
-        self.memory.concepts().into_iter().collect()
+    pub fn concepts(&self) -> Vec<&TaskConcept> {
+        self.memory.concepts()
     }
     
     /// Get memory statistics
     pub fn stats(&self) -> NARStats {
+        let concepts = self.memory.concepts();
+        let active_concepts = concepts.iter().filter(|c| c.activation() > self.attention.min_attention_threshold).count();
         NARStats {
             time: self.time,
-            concepts: self.memory.len(),
-            active_concepts: self.memory.active_concepts(0.1).len(),
+            concepts: concepts.len(),
+            active_concepts,
         }
     }
 }

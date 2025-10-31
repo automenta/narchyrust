@@ -11,6 +11,7 @@ pub mod task;
 pub mod concept;
 pub mod memory;
 pub mod table;
+pub mod bag;
 pub mod nal;
 pub mod parser;
 pub mod focus;

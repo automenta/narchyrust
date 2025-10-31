@@ -11,6 +11,7 @@ pub mod util;
 use crate::term::Term;
 use crate::task::{Task, Punctuation};
 use crate::table::TaskTable;
+use crate::bag::BagItem;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -198,6 +199,12 @@ impl fmt::Display for Concept {
         writeln!(f, "  Quests: {}", self.quests.len())?;
         writeln!(f, "  Termlinks: {}", self.termlinks.len())?;
         writeln!(f, "  Tasklinks: {}", self.tasklinks.len())
+    }
+}
+
+impl BagItem for TaskConcept {
+    fn priority(&self) -> f32 {
+        self.activation
     }
 }
 

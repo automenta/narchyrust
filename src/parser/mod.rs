@@ -156,7 +156,7 @@ impl Parser {
             '#' => Ok(Term::Variable(Variable::new_dep(&input[1..]))),
             '$' => Ok(Term::Variable(Variable::new_indep(&input[1..]))),
             '?' => Ok(Term::Variable(Variable::new_query(&input[1..]))),
-            '@' => Ok(Term::Variable(Variable::new_pattern(&input[1..]))),
+            '@' => Err(ParseError::InvalidTerm("Pattern variables are not supported".to_string())),
             _ => {
                 // Regular atomic term
                 Ok(Term::Atomic(crate::term::atom::Atomic::new_atom(input)))

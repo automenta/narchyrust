@@ -71,6 +71,25 @@ impl TermTrait for Atomic {
     fn root(&self) -> Term {
         Term::Atomic(self.clone())
     }
+
+    fn transform<F>(&self, f: &mut F) -> Term
+    where
+        F: FnMut(&Term) -> Term,
+    {
+        f(&Term::Atomic(self.clone()))
+    }
+
+    fn match_term(&self, pattern: &Term) -> bool {
+        match pattern {
+            Term::Atomic(p) => self == p,
+            Term::Variable(_) => true,
+            _ => false,
+        }
+    }
+
+    fn subterms(&self) -> Vec<Term> {
+        Vec::new()
+    }
 }
 
 impl fmt::Display for Atomic {

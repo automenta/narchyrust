@@ -104,6 +104,41 @@ impl TermTrait for Compound {
         // In a full implementation, this would normalize the term
         Term::Compound(self.clone())
     }
+
+    fn transform<F>(&self, f: &mut F) -> Term
+    where
+        F: FnMut(&Term) -> Term,
+    {
+        let transformed = f(&Term::Compound(self.clone()));
+        match transformed {
+            Term::Compound(c) => {
+                let subterms = c.subterms().iter().map(|t| t.transform(f)).collect();
+                Term::Compound(Compound::new(c.op_id(), subterms))
+            }
+            _ => transformed,
+        }
+    }
+
+    fn match_term(&self, pattern: &Term) -> bool {
+        match pattern {
+            Term::Compound(p) => {
+                if self.operator == p.operator && self.subterms.len() == p.subterms.len() {
+                    self.subterms
+                        .iter()
+                        .zip(p.subterms.iter())
+                        .all(|(t1, t2)| t1.match_term(t2))
+                } else {
+                    false
+                }
+            }
+            Term::Variable(_) => true,
+            _ => false,
+        }
+    }
+
+    fn subterms(&self) -> Vec<Term> {
+        self.subterms.to_vec()
+    }
 }
 
 impl fmt::Display for Compound {
@@ -205,7 +240,7 @@ mod tests {
         // Test conjunction
         let conj_subterms = vec![atom1.clone(), atom2.clone()];
         let conjunction = Compound::new(Op::Conjunction, conj_subterms);
-        assert_eq!(format!("{}", conjunction), "(cat & dog)");
+        assert_eq!(format!("{}", conjunction), "(cat && dog)");
         
         // Test inheritance
         let inh_subterms = vec![atom1.clone(), atom2.clone()];
@@ -220,7 +255,7 @@ mod tests {
         // Test temporal conjunction
         let temp_subterms = vec![atom1, atom2];
         let temporal = Compound::new_temporal(Op::Conjunction, temp_subterms, 3);
-        assert_eq!(format!("{}", temporal), "(cat & dog)_3");
+        assert_eq!(format!("{}", temporal), "(cat && dog)_3");
     }
     
     #[test]
@@ -232,7 +267,7 @@ mod tests {
         let seq_compound = Compound::new_temporal(Op::Conjunction, vec![a.clone(), b.clone()], 1);
         // Note: The display format depends on how we map operators
         // For sequential conjunction, we might want to use a different operator
-        assert_eq!(format!("{}", seq_compound), "(a & b)_1");
+        assert_eq!(format!("{}", seq_compound), "(a && b)_1");
         
         // Test parallel conjunction (&|)
         let par_compound = Compound::new_temporal(Op::Intersection, vec![a.clone(), b.clone()], 0);
@@ -248,6 +283,6 @@ mod tests {
         // Test nested compounds
         let conjunction = Term::Compound(Compound::new(Op::Conjunction, vec![cat.clone(), dog.clone()]));
         let inheritance = Term::Compound(Compound::new(Op::Inheritance, vec![conjunction, animal]));
-        assert_eq!(format!("{}", inheritance), "((cat & dog) --> animal)");
+        assert_eq!(format!("{}", inheritance), "((cat && dog) --> animal)");
     }
 }

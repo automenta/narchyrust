@@ -30,6 +30,17 @@ pub trait TermTrait: fmt::Display + fmt::Debug + Hash + Eq {
     
     /// Get the root of the term
     fn root(&self) -> Term;
+
+    /// Transform the term and its subterms using the given closure.
+    fn transform<F>(&self, f: &mut F) -> Term
+    where
+        F: FnMut(&Term) -> Term;
+
+    /// Match the term against a pattern.
+    fn match_term(&self, pattern: &Term) -> bool;
+
+    /// Get the subterms of the term.
+    fn subterms(&self) -> Vec<Term>;
 }
 
 /// Operator types for terms
@@ -44,7 +55,6 @@ pub enum Op {
     VarDep,
     VarIndep,
     VarQuery,
-    VarPattern,
     
     // Compound operators
     Neg,
@@ -66,8 +76,6 @@ pub enum Op {
     SetExt,
     SetInt,
     Product,
-    ExtensionalImage,
-    IntensionalImage,
 }
 
 impl fmt::Display for Op {
@@ -79,9 +87,8 @@ impl fmt::Display for Op {
             Op::VarDep => write!(f, "#"),
             Op::VarIndep => write!(f, "$"),
             Op::VarQuery => write!(f, "?"),
-            Op::VarPattern => write!(f, "@"),
             Op::Neg => write!(f, "--"),
-            Op::Conjunction => write!(f, "&"),
+            Op::Conjunction => write!(f, "&&"),
             Op::Disjunction => write!(f, "||"),
             Op::Intersection => write!(f, "|"),
             Op::Difference => write!(f, "~"),
@@ -97,8 +104,6 @@ impl fmt::Display for Op {
             Op::SetExt => write!(f, "{{}}"),
             Op::SetInt => write!(f, "[]"),
             Op::Product => write!(f, "*"),
-            Op::ExtensionalImage => write!(f, "\\"),
-            Op::IntensionalImage => write!(f, "/"),
         }
     }
 }
@@ -159,6 +164,45 @@ impl TermTrait for Term {
             Term::Variable(v) => v.root(),
         }
     }
+
+    fn transform<F>(&self, f: &mut F) -> Term
+    where
+        F: FnMut(&Term) -> Term,
+    {
+        let transformed = f(self);
+        match transformed {
+            Term::Compound(c) => {
+                let subterms = c.subterms().iter().map(|t| t.transform(f)).collect();
+                Term::Compound(compound::Compound::new(c.op_id(), subterms))
+            }
+            _ => transformed,
+        }
+    }
+
+    fn match_term(&self, pattern: &Term) -> bool {
+        match (self, pattern) {
+            (Term::Atomic(a1), Term::Atomic(a2)) => a1 == a2,
+            (Term::Compound(c1), Term::Compound(c2)) => {
+                if c1.op_id() == c2.op_id() && c1.subterms().len() == c2.subterms().len() {
+                    c1.subterms()
+                        .iter()
+                        .zip(c2.subterms().iter())
+                        .all(|(t1, t2)| t1.match_term(t2))
+                } else {
+                    false
+                }
+            }
+            (_, Term::Variable(_)) => true,
+            _ => false,
+        }
+    }
+
+    fn subterms(&self) -> Vec<Term> {
+        match self {
+            Term::Compound(c) => c.subterms().to_vec(),
+            _ => Vec::new(),
+        }
+    }
 }
 
 impl fmt::Display for Term {
@@ -201,7 +245,7 @@ mod tests {
     #[test]
     fn test_op_display() {
         assert_eq!(format!("{}", Op::Atom), "Atom");
-        assert_eq!(format!("{}", Op::Conjunction), "&");
+        assert_eq!(format!("{}", Op::Conjunction), "&&");
         assert_eq!(format!("{}", Op::Inheritance), "-->");
     }
     
@@ -213,9 +257,8 @@ mod tests {
         assert_eq!(format!("{}", Op::VarDep), "#");
         assert_eq!(format!("{}", Op::VarIndep), "$");
         assert_eq!(format!("{}", Op::VarQuery), "?");
-        assert_eq!(format!("{}", Op::VarPattern), "@");
         assert_eq!(format!("{}", Op::Neg), "--");
-        assert_eq!(format!("{}", Op::Conjunction), "&");
+        assert_eq!(format!("{}", Op::Conjunction), "&&");
         assert_eq!(format!("{}", Op::Disjunction), "||");
         assert_eq!(format!("{}", Op::Intersection), "|");
         assert_eq!(format!("{}", Op::Difference), "~");
@@ -231,8 +274,6 @@ mod tests {
         assert_eq!(format!("{}", Op::SetExt), "{}");
         assert_eq!(format!("{}", Op::SetInt), "[]");
         assert_eq!(format!("{}", Op::Product), "*");
-        assert_eq!(format!("{}", Op::ExtensionalImage), "\\");
-        assert_eq!(format!("{}", Op::IntensionalImage), "/");
     }
     
     #[test]
@@ -250,12 +291,12 @@ mod tests {
         let walk = Term::Atomic(Atomic::new_atom("walk"));
         let run = Term::Atomic(Atomic::new_atom("run"));
         let conjunction = Term::Compound(Compound::new(Op::Conjunction, vec![walk.clone(), run]));
-        assert_eq!(format!("{}", conjunction), "(walk & run)");
+        assert_eq!(format!("{}", conjunction), "(walk && run)");
         
         // Test a nested compound term
         let conjunction2 = Term::Compound(Compound::new(Op::Conjunction, vec![cat.clone(), walk.clone()]));
         let nested = Term::Compound(Compound::new(Op::Inheritance, vec![conjunction2, animal.clone()]));
-        assert_eq!(format!("{}", nested), "((cat & walk) --> animal)");
+        assert_eq!(format!("{}", nested), "((cat && walk) --> animal)");
     }
     
     #[test]

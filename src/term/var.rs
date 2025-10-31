@@ -1,11 +1,10 @@
 //! Variable terms in NARS
 //!
 //! Variables in NARS are special atomic terms that can be substituted with other terms.
-//! There are four types of variables:
+//! There are three types of variables:
 //! - Dependent variables (#)
 //! - Independent variables ($)
 //! - Query variables (?)
-//! - Pattern variables (@)
 
 use super::{TermTrait, Op};
 use crate::Term;
@@ -63,19 +62,6 @@ impl Variable {
         }
     }
     
-    /// Create a new pattern variable
-    pub fn new_pattern(name: &str) -> Self {
-        let full_name: SmartString<smartstring::LazyCompact> = if name.starts_with('@') {
-            SmartString::from(name)
-        } else {
-            SmartString::from(format!("@{}", name))
-        };
-        Variable {
-            name: full_name.into(),
-            var_type: Op::VarPattern,
-        }
-    }
-    
     /// Get the variable name without the prefix
     pub fn name(&self) -> &str {
         &self.name[1..] // Skip the first character which is the prefix
@@ -87,7 +73,6 @@ impl Variable {
             Op::VarDep => '#',
             Op::VarIndep => '$',
             Op::VarQuery => '?',
-            Op::VarPattern => '@',
             _ => panic!("Invalid variable type"),
         }
     }
@@ -116,6 +101,21 @@ impl TermTrait for Variable {
     
     fn root(&self) -> Term {
         Term::Variable(self.clone())
+    }
+
+    fn transform<F>(&self, f: &mut F) -> Term
+    where
+        F: FnMut(&Term) -> Term,
+    {
+        f(&Term::Variable(self.clone()))
+    }
+
+    fn match_term(&self, _pattern: &Term) -> bool {
+        true
+    }
+
+    fn subterms(&self) -> Vec<Term> {
+        Vec::new()
     }
 }
 
@@ -155,12 +155,6 @@ mod tests {
         assert_eq!(query_var.op_id(), Op::VarQuery);
         assert_eq!(query_var.prefix(), '?');
         assert_eq!(query_var.name(), "z");
-        
-        let pattern_var = Variable::new_pattern("w");
-        assert_eq!(format!("{}", pattern_var), "@w");
-        assert_eq!(pattern_var.op_id(), Op::VarPattern);
-        assert_eq!(pattern_var.prefix(), '@');
-        assert_eq!(pattern_var.name(), "w");
     }
 
     #[test]

@@ -10,6 +10,7 @@
 
 use crate::term::{Term, TermTrait};
 use crate::truth::Truth;
+use crate::bag::BagItem;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -333,6 +334,12 @@ impl PartialEq for Task {
 }
 
 impl Eq for Task {}
+
+impl BagItem for Task {
+    fn priority(&self) -> f32 {
+        self.budget.priority()
+    }
+}
 
 /// Builder for creating tasks
 pub struct TaskBuilder {

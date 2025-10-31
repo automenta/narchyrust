@@ -9,6 +9,7 @@
 //! This implementation uses a radix tree for efficient concept storage and retrieval.
 
 pub mod radix_tree;
+pub mod serial;
 
 use crate::concept::TaskConcept;
 use crate::term::{Term, TermTrait};

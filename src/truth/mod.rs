@@ -67,18 +67,23 @@ impl Truth {
         self.confidence.0 == 1.0
     }
     
-    /// Check if this truth value is eternal (not temporal)
-    pub fn is_eternal(&self) -> bool {
-        // In this simple implementation, all truths are eternal
-        // A more complete implementation would have temporal truths
-        true
-    }
-    
     /// Negate this truth value (1 - frequency, same confidence)
     pub fn neg(&self) -> Self {
         Truth::new(1.0 - self.frequency.0, self.confidence.0)
     }
     
+    /// Project the truth value to a different time.
+    pub fn project(&self, dt: i64) -> Self {
+        if dt == 0 {
+            *self
+        } else {
+            // This is a simplified projection function
+            // A more complete implementation would use a more sophisticated function
+            let new_confidence = self.confidence.0 * (0.9_f32).powi(dt.abs() as i32);
+            Truth::new(self.frequency.0, new_confidence)
+        }
+    }
+
     /// Deduction: C1 and (C1 ==> C2) |- C2
     pub fn deduction(a: &Truth, b: &Truth) -> Self {
         let f = a.frequency() * b.frequency();
