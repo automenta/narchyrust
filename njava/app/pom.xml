@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <modelVersion>4.0.0</modelVersion>
+    <properties>
+        <stanford-corenlp.version>4.5.7</stanford-corenlp.version>
+    </properties>
+
+    <parent>
+        <groupId>narchy</groupId>
+        <artifactId>narchy</artifactId>
+        <version>1.0</version>
+        <!--<relativePath>../pom.xml</relativePath>-->
+    </parent>
+
+    <artifactId>app</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>narchy</groupId>
+            <artifactId>nar</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>dumb</groupId>
+            <artifactId>learn</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>dumb</groupId>
+            <artifactId>rl</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>dumb</groupId>
+            <artifactId>net</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>dumb</groupId>
+            <artifactId>prolog</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.pircbotx</groupId>
+            <artifactId>pircbotx</artifactId>
+            <version>2.1</version>
+
+            <exclusions>
+                <exclusion>
+                    <artifactId>*</artifactId>
+                    <groupId>org.slf4j</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>*</artifactId>
+                    <groupId>com.google.guava</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>*</artifactId>
+                    <groupId>org.apache.commons</groupId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!--        <dependency>-->
+        <!--            <groupId>org.zeromq</groupId>-->
+        <!--            <artifactId>jeromq</artifactId>-->
+        <!--            <version>0.5.1</version>-->
+        <!--            -->
+        <!--        </dependency>-->
+        <dependency>
+            <groupId>org.semanticweb.yars</groupId>
+            <artifactId>nxparser-parsers</artifactId>
+            <version>4.0.0</version>
+        </dependency>
+
+
+<!--        <dependency>-->
+<!--            <groupId>edu.stanford.nlp</groupId>-->
+<!--            <artifactId>stanford-corenlp</artifactId>-->
+<!--            <version>${stanford-corenlp.version}</version>-->
+<!--            <exclusions>-->
+<!--                <exclusion><groupId>org.slf4j</groupId><artifactId>slf4j-api</artifactId></exclusion>-->
+<!--                <exclusion><groupId>org.apache.lucene</groupId> <artifactId>*</artifactId></exclusion>-->
+<!--                <exclusion><groupId>org.apache.commons</groupId> <artifactId>*</artifactId></exclusion>-->
+<!--                <exclusion><groupId>org.ejml</groupId> <artifactId>*</artifactId></exclusion>-->
+<!--            </exclusions>-->
+<!--        </dependency>-->
+<!--        <dependency>-->
+<!--            <groupId>edu.stanford.nlp</groupId>-->
+<!--            <artifactId>stanford-corenlp</artifactId>-->
+<!--            <version>${stanford-corenlp.version}</version>-->
+<!--            <classifier>models</classifier>-->
+<!--            <exclusions>-->
+<!--                <exclusion><groupId>org.slf4j</groupId><artifactId>slf4j-api</artifactId></exclusion>-->
+<!--                <exclusion><groupId>org.apache.lucene</groupId> <artifactId>*</artifactId></exclusion>-->
+<!--                <exclusion><groupId>org.apache.commons</groupId> <artifactId>*</artifactId></exclusion>-->
+<!--                <exclusion><groupId>org.ejml</groupId> <artifactId>*</artifactId></exclusion>-->
+<!--            </exclusions>-->
+<!--        </dependency>-->
+
+    </dependencies>
+</project>

@@ -1,0 +1,28 @@
+#!/bin/bash
+
+
+# https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html
+# https://stackoverflow.com/questions/15548023/clang-optimization-levels 
+# https://stackoverflow.com/questions/4365980/how-to-use-profile-guided-optimizations-in-g
+
+TOOLCHAIN="clang" ; MY_CFLAGS="-Ofast -march=native -w"
+
+#TOOLCHAIN="gcc" ; MY_CFLAGS="-O3 -march=native -ftree-vectorize -fgcse  -w"
+
+./configure \
+--with-toolchain-type="$TOOLCHAIN" \
+--with-boot-jdk="/home/me/jdk-15" \
+--disable-warnings-as-errors \
+--without-jtreg \
+--with-extra-cflags="$MY_CFLAGS" \
+--with-extra-cxxflags="$MY_CFLAGS" \
+--enable-full-docs=no \
+--disable-manpages \
+--with-native-debug-symbols=none \
+--with-jvm-features=graal,aot,cds,-dtrace,-parallelgc,-shenandoahgc,-epsilongc,-zgc,-zero \
+--disable-ccache
+
+time remake images
+
+#--with-jvm-features=...,link-time-opt,
+

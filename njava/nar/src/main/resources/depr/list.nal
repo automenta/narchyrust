@@ -1,0 +1,32 @@
+//INDICES TRANSFORMATION
+//(P-->C), X, is(P,"*"), sub(X,P), task(containsBeliefRecursively) |- ({indicesOf(P,X)}-->C), (Belief:Identity, Goal:Identity)
+//(C-->P), X, is(P,"*"), sub(X,P), task(containsBeliefRecursively) |- (C-->{indicesOf(P,X)}), (Belief:Identity, Goal:Identity)
+(P-->C), X, is(P,"*"), subPN(P,X) |- ((C-->X)-->indicesOf(P,X)), (Belief:StructuralReduction)
+//(P-->C), X, is(P,"*"), subPN(P,X) |- (productShadow(P,X)-->C), (Belief:StructuralReduction)
+
+      //raw product version:
+      P, X, is(P,"*"), subPN(P,X) |- (X-->indicesOf(P,X)), (Belief:StructuralReduction)
+
+    (P-->C), X, is(P,"*"), subPN(P,X), task("?") |- ((C,indicesOf(P,X))-->X), (Punctuation:Question)
+    (P-->C), X, is(P,"*"), subPN(P,X), task("@") |- ((C,indicesOf(P,X))-->X), (Punctuation:Quest)
+(C-->P), X, is(P,"*"), subPN(P,X) |- ((X-->C)-->indicesOf(P,X)), (Belief:StructuralReduction)
+        //, Goal:StructuralReduction)
+
+
+
+
+//(P-->C), X, is(P,"*"), sub(X,P), task(containsBeliefRecursively) |- (indicesOf(P,X)-->P), (Belief:Identity, Goal:Identity)
+//(C-->P), X, is(P,"*"), sub(X,P), task(containsBeliefRecursively) |- (P-->indicesOf(P,X)), (Belief:Identity, Goal:Identity)
+
+//(P-->C), X, is(P,"*"), sub(X,P), task(containsBeliefRecursively)     |- ({(X,indicesOf(P,X))}-->C), (Belief:Identity, Goal:Identity)
+//    //(P-->C), X, is(P,"*"), sub(X,P), task(containsBeliefRecursively) |- (P-->(X,indicesOf(P,X))), (Belief:Identity, Goal:Identity)
+//(C-->P), X, is(P,"*"), sub(X,P), task(containsBeliefRecursively)     |- (C-->[(X,indicesOf(P,X))]), (Belief:Identity, Goal:Identity)
+//    //(C-->P), X, is(P,"*"), sub(X,P), task(containsBeliefRecursively) |- (P-->(X,indicesOf(P,X))), (Belief:Identity, Goal:Identity)
+
+
+//((x,y,z)-->a)
+//    ((a,(),y,z)-->x)
+//    ((((),y,z)-->x)-->a)
+//    ( (((),y,z),x) -->a)
+//    ( (((),y,z),x) -->a)
+//    (x-->((),y,z,a))

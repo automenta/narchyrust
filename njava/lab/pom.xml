@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>narchy</groupId>
+        <artifactId>narchy</artifactId>
+        <version>1.0</version>
+        <!--<relativePath>../pom.xml</relativePath>-->
+    </parent>
+
+    <artifactId>lab</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>narchy</groupId>
+            <artifactId>os</artifactId>
+            <version>1.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>dumb</groupId>
+            <artifactId>phy2d</artifactId>
+            <version>1.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.reflections</groupId>
+            <artifactId>reflections</artifactId>
+            <version>0.10.2</version>
+
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>guava</artifactId>
+                    <groupId>*</groupId>
+                </exclusion>
+                <!--        <exclusion>-->
+                <!--          <artifactId>javassist</artifactId>-->
+                <!--          <groupId>*</groupId>-->
+                <!--        </exclusion>-->
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>net.java.jinput</groupId>
+            <artifactId>jinput</artifactId>
+            <version>2.0.10</version>
+        </dependency>
+        <!--    <dependency>-->
+        <!--      <groupId>io.jenetics</groupId>-->
+        <!--      <artifactId>jenetics.prog</artifactId>-->
+        <!--      <version>5.1.0</version>-->
+        <!--    </dependency>-->
+
+        <!--                <dependency>-->
+        <!--                    <groupId>org.boofcv</groupId>-->
+        <!--                    <artifactId>boofcv-swing</artifactId>-->
+        <!--                    <version>0.37</version>-->
+
+        <!--                </dependency>-->
+
+
+    </dependencies>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>maven-snapshots</id>
+            <url>https://repository.apache.org/content/repositories/snapshots/</url>
+        </pluginRepository>
+    </pluginRepositories>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <mainClass>nars.Shell</mainClass>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <finalName>n</finalName>
+                    <transformers>
+                        <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                            <!--<mainClass>nars.GUI</mainClass>-->
+                            <mainClass>nars.Launcher</mainClass>
+                        </transformer>
+
+                    </transformers>
+                    <!--                            <minimizeJar>true</minimizeJar>-->
+                    <filters>
+                        <filter>
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <exclude>META-INF/*.SF</exclude>
+                                <exclude>META-INF/*.DSA</exclude>
+                                <exclude>META-INF/*.RSA</exclude>
+                                <exclude>com/ibm/icu/**</exclude> <!-- ??? -->
+                                <exclude>com/google/protobuf/**</exclude> <!-- ??? -->
+                            </excludes>
+                        </filter>
+                    </filters>
+                </configuration>
+            </plugin>
+
+            <!--            <plugin>-->
+            <!--                <groupId>com.jolira</groupId>-->
+            <!--                <artifactId>onejar-maven-plugin</artifactId>-->
+            <!--                <version>1.4.4</version>-->
+            <!--                <executions>-->
+            <!--                    <execution>-->
+            <!--                        <configuration>-->
+            <!--                            <finalName>n</finalName>-->
+            <!--                            <mainClass>nars.N</mainClass>-->
+            <!--                            s<attachToBuild>true</attachToBuild>-->
+            <!--                            <filename>-->
+            <!--                                ${project.build.finalName}.${project.packaging}-->
+            <!--                            </filename>-->
+            <!--                        </configuration>-->
+            <!--                        <goals>-->
+            <!--                            <goal>one-jar</goal>-->
+            <!--                        </goals>-->
+            <!--                    </execution>-->
+            <!--                </executions>-->
+            <!--            </plugin>-->
+
+
+<!--            <plugin>-->
+<!--                &lt;!&ndash; https://tentackle.org/static-content/sitedocs/tentackle/latest/tentackle-jlink-maven-plugin/jpackage-mojo.html &ndash;&gt;-->
+<!--                <groupId>org.tentackle</groupId>-->
+<!--                <artifactId>tentackle-jlink-maven-plugin</artifactId>-->
+<!--                <version>21.16.1.0</version>-->
+<!--                <extensions>true</extensions>-->
+<!--                <configuration>-->
+<!--                    <mainClass>nars.Launcher</mainClass>-->
+<!--&lt;!&ndash;                    <compress>6</compress>&ndash;&gt;-->
+<!--                    <noHeaderFiles>true</noHeaderFiles>-->
+<!--                    <noManPages>true</noManPages>-->
+<!--                    <stripDebug>true</stripDebug>-->
+<!--                </configuration>-->
+<!--            </plugin>-->
+        </plugins>
+    </build>
+
+</project>

@@ -1,0 +1,22 @@
+//probably not very helpful:
+
+//Conj and Disj Question Decomposition
+    C, X, condOfPN(C,X), task("?") |- condWithoutAnyPN(C,X),  (Punctuation:Question)
+        X, C, eventOfPN(C,X), task("?") |- condWithoutAnyPN(C,X),  (Punctuation:Question)
+    C, X, eventOfPN(C,X), task("@") |- condWithoutAnyPN(C,X),  (Punctuation:Quest)
+        X, C, eventOfPN(C,X), task("@") |- condWithoutAnyPN(C,X),  (Punctuation:Quest)
+
+
+//question/quest propagation
+    Z, (X==>Y), task("?") |- unisubst(X,Y,Z), (Punctuation:Question)
+    Z, (X==>Y), task("@") |- X, (Punctuation:Quest)
+        //Z, (X==>Y), task("@") |- unisubst(X,Y,Z), (Punctuation:Quest)
+        //Z, (X==>Y), neq(Y,Z), task("?") |- unisubst((X ==>+- Y),Y,Z,novel), (Punctuation:Question)
+    Z, (Y==>X), task("?") |- unisubst(X,Y,Z), (Punctuation:Question)
+    Z, (Y==>X), task("@") |- X, (Punctuation:Quest)
+        //Z, (Y==>X), task("@") |- unisubst(X,Y,Z), (Punctuation:Quest)
+        //Z, (Y==>X), neq(Y,Z), task("?") |- unisubst((Y ==>+- X),Y,Z,novel), (Punctuation:Question)
+    Z, (--Y==>X), task("?") |- unisubst(X,Y,Z), (Punctuation:Question)
+    Z, (--Y==>X), task("@") |- X, (Punctuation:Quest)
+        //Z, (--Y==>X), task("@") |- unisubst(X,Y,Z), (Punctuation:Quest)
+        //Z, (Y==>X), neq(Y,Z), task("?") |- unisubst((--Y ==>+- X),Y,Z,novel), (Punctuation:Question)

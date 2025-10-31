@@ -1,0 +1,5 @@
+#hg pull http://hg.openjdk.java.net/jdk/jdk/
+#hg update
+git pull
+./compile
+

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>narchy</groupId>
+        <artifactId>narchy</artifactId>
+        <version>1.0</version>
+    </parent>
+
+    <artifactId>nar</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>dumb</groupId>
+            <artifactId>io</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>dumb</groupId>
+            <artifactId>parse</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>dumb</groupId>
+            <artifactId>graph</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>dumb</groupId>
+            <artifactId>memoize</artifactId>
+            <version>1.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>tec.uom</groupId>
+            <artifactId>uom-se</artifactId>
+            <version>1.0.10</version>
+        </dependency>
+        <dependency>
+            <groupId>net.byteseek</groupId>
+            <artifactId>byteseek</artifactId>
+            <version>2.0.3</version>
+        </dependency>
+        <dependency>
+            <groupId>dumb</groupId>
+            <artifactId>util</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>dumb</groupId>
+            <artifactId>realtime</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>dumb</groupId>
+            <artifactId>learn</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
+            <version>1.37</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

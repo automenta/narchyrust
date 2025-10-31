@@ -1,0 +1,234 @@
+
+    //the comparison rules here emulates what Comparison did in generating <=> which are modeled here as a pair of opposing ==>
+    //untested
+//    (P ==> M), (S ==> M) |- --((S ==> P) && (P ==> S)), (Belief:ComparisonSymmetric)
+//    (M ==> P), (M ==> S) |- --((S ==> P) && (P ==> S)), (Belief:ComparisonSymmetric)
+////    (P ==> M), (S ==> M) |- (S ==> P), (Belief:Comparison)
+////        (P ==> M), (S ==> M) |- (P ==> S), (Belief:Comparison)
+////    (M ==> P), (M ==> S) |- (S ==> P), (Belief:Comparison)
+////        (M ==> P), (M ==> S) |- (P ==> S), (Belief:Comparison)
+
+
+        //TODO question variations
+        //((&&,P,A..+) ==> X), ((&&,S,A..+) ==> X), neq(P,S) |- ((&&,(P && S),A..+) ==> X), (Belief:IntersectionSym)
+        //((&&,P,A..+) ==> X), ((&&,S,A..+) ==> X), neq(P,S) |- ((&&,(P || S),A..+) ==> X), (Belief:UnionSym)
+
+        //TODO question variations
+        //(--(&&,P,A..+) ==> X), (--(&&,S,A..+) ==> X), neq(P,S) |- (--(&&,(P && S),A..+) ==> X), (Belief:IntersectionSym)
+        //(--(&&,P,A..+) ==> X), (--(&&,S,A..+) ==> X), neq(P,S) |- (--(&&,(P || S),A..+) ==> X), (Belief:UnionSym)
+
+
+
+            //(Y --> P), ((&&,(X-->P),A..+) ==> Z),neq(X,Y) |- unisubst(((&&,(X-->P),A..+) ==> Z), X,Y,novel), (Belief:Deduction)
+              //  (Y --> P), ((&&,--(X-->P),A..+) ==> Z),neq(X,Y) |- unisubst(((&&,--(X-->P),A..+) ==> Z), X,Y,novel), (Belief:DeductionN)
+            //(Y --> P), (Z ==> (&&,(X-->P),A..+)),neq(X,Y) |- unisubst((Z ==> (&&,(X-->P),A..+)), X,Y,novel), (Belief:Deduction)
+              //  (Y --> P), (Z ==> (&&,--(X-->P),A..+)),neq(X,Y) |- unisubst((Z ==> (&&,--(X-->P),A..+)), X,Y,novel), (Belief:DeductionN)
+
+
+//
+//Conj_Impl_Chain_Deduction {
+//    (X ==> Y), (C ==> Z), eventOf(C,Y), --var(Y)      |-   polarizeBelief(((X &&   condWithoutAny(C,  Y)) ==> Z)), (Belief:DeductionPD)
+//    (X ==> Y), (C ==> Z), eventOfNeg(C,Y), --var(Y)   |-   polarizeBelief(((X &&   condWithoutAny(C, --Y)) ==> Z)), (Belief:DeductionND)
+////TODO check:
+////    (X ==> Y), (--C ==> Z), eventOf(C,Y), --var(Y)    |-   polarizeBelief(((X && --condWithoutAny(C,  Y)) ==> Z)), (Belief:DeductionPD)
+////    (X ==> Y), (--C ==> Z), eventOfNeg(C,Y), --var(Y) |-   polarizeBelief(((X && --condWithoutAny(C, --Y)) ==> Z)), (Belief:DeductionND)
+//}
+
+//    (X ==> Y), (C ==> Z), eventOf(C,Y)      |-   ((X && condWithoutAny(C,  Y)) ==> Z), (Belief:DeductionPP)
+//      (X ==> Y), (C ==> Z), eventOf(C,Y)    |- --((X && condWithoutAny(C,  Y)) ==> Z), (Belief:DeductionPN)
+//    (X ==> Y), (C ==> Z), eventOfNeg(C,Y)   |-   ((X && condWithoutAny(C,--Y)) ==> Z), (Belief:DeductionNP)
+//      (X ==> Y), (C ==> Z), eventOfNeg(C,Y) |- --((X && condWithoutAny(C,--Y)) ==> Z), (Belief:DeductionNN)
+
+//
+//conj_impl_swap_chain {
+//    (C ==> Z), (Y ==> X), eventOf(C,X)     |- ((&&, Y, condWithoutAny(C,  X)) ==> Z), (Belief:InductionPP)
+//    (C ==> Z), (Y ==> X), eventOfNeg(C,X)  |- ((&&, Y, condWithoutAny(C,--X)) ==> Z), (Belief:InductionPN)
+////     (Y ==> X), ((&&,X,A..+) ==> Z)   |- ((&&,Y,A..+) ==> Z), (Belief:Deduction)
+////        ((&&,--X,A..+) ==> Z), (Y ==> X)  |- ((&&,Y,A..+) ==> Z), (Belief:DeductionPN)
+////         (Y ==> X), ((&&,--X,A..+) ==> Z)  |- ((&&,Y,A..+) ==> Z), (Belief:DeductionN)
+//}
+
+//Disj/Impl Chain Deduction
+    //TODO test
+//    (X ==> Y), (--D ==> Z), eventOfNeg(D,Y)     |-   (X ==> Z), (Belief:DeductionPP)
+//      (X ==> Y), (--D ==> Z), eventOfNeg(D,Y)   |- --(X ==> Z), (Belief:DeductionPN)
+//    (X ==> Y), (--D ==> Z), eventOf(D,Y)        |-   (X ==> Z), (Belief:DeductionNP)
+//      (X ==> Y), (--D ==> Z), eventOf(D,Y)      |- --(X ==> Z), (Belief:DeductionNN)
+
+
+//equivalence_emulation_negate_each_side {
+//    //Negate Both Sides:  (x <=> y) |- (--x <=> --y)
+//    (X==>Y), (Y==>X), --var(X), --var(Y) |- (--X ==> --Y), (Belief:Intersection)
+//    (X==>Y), (Y==>X), --var(X), --var(Y) |- (--Y ==> --X), (Belief:Intersection)
+//      (--X==>Y), (Y==>X), --var(X), --var(Y) |- (X ==> --Y), (Belief:IntersectionPN)
+//      (--X==>Y), (Y==>X), --var(X), --var(Y) |- (--Y ==> X), (Belief:IntersectionPN)
+//}
+//equivalence_emulation_Primary_Inverting_SubCondition {
+//    ((&&,X,A..+) ==> Z), ((&&,--X,A..+) ==> Z), --var(X), --var(Z)    |- ((X ==> Z) && (--X ==> --Z)), (Belief:IntersectionPN)
+//    ((&&,X,A..+) ==> Z), ((&&,--X,A..+) ==> Z), --var(X), --var(Z)    |- ((X ==> --Z) && (--X ==> Z)), (Belief:IntersectionNP)
+//       (Z ==> (&&,X,A..+)), (--Z ==> (&&,--X,A..+)), --var(X), --var(Z) |- ((Z ==> X) && (--Z ==> --X)), (Belief:IntersectionSym)
+//}
+
+
+
+
+//// multi-conditional syllogism ////////////////////////////////////////////////////////////////////////////////////
+//Inference about the pre/postconditions
+
+//    ((&&,M,A_1..n) ==> C), M, not_implication_or_equivalence(M) |- ((&&,A_1..n) ==> C), (Truth:Deduction, Order:ForAllSame)
+//    ((&&,M,A_1..n) ==> C), ((&&,A_1..n) ==> C) |- M, (Truth:Abduction, Order:ForAllSame)
+
+
+
+
+
+
+
+
+//// conjunction decompose AND dependent variable elimination - decomposition with elimination of a variable
+
+        //, Goal:StructuralStrong
+           //maybe subOf?
+        //C, X, eventOfPN(C,X)  |- condWithoutAnyPN(C,X), (Belief:StructuralDeduction, Goal:StructuralStrong)
+        //C, X, task("!"), eventOfPN(C,X)  |- condWithoutAnyPN(C,X), (Punctuation:Quest)
+
+
+
+
+
+
+
+
+
+
+
+
+
+     //((&&,X,A..+) && Z), Z |- (X && Z), (Belief:StructuralDeduction, Goal:StructuralDeduction)
+     //(Z && (&&,X,A..+)), Z |- (Z && X), (Belief:StructuralDeduction, Goal:StructuralDeduction)
+        //((&&,X,A..+) && (--,%Z)), Z |- (X && (--,%Z)), (Belief:StructuralDeduction, Goal:StructuralDeduction)
+        //((--,%Z) && (&&,X,A..+)), Z |- ((--,%Z) && X), (Belief:StructuralDeduction, Goal:StructuralDeduction)
+
+
+     //X, (&&,X,A..+),            task("?@") |- (&&,A..+), ()
+     //   X, (&&,(--,%X),A..+),   task("?@") |- (&&,A..+), ()
+     //B, (A==>B),                task("?@") |- A, ()
+     //A, (A==>B),                task("?@") |- B, ()
+     //A, ((--,%A)==>B),          task("?@") |- B, ()
+
+
+     //(&&,X,A..+), X, task("?@") |- (&&,A..+), ()
+     //   (&&,(--,%X),A..+), X, task("?@") |- (&&,A..+), ()
+
+
+     //B, C, belief("&&") |- subIfUnifiesDep(dropAnyEvent(C),X,B), (Belief:AnonymousAnalogy)
+                //,Goal:Deduction
+                //Goal:Goduction)
+
+///// conjunction decompose
+//
+//    (&&,A_1..n), A_1 |- A_1, (Truth:StructuralDeduction, Desire:StructuralStrong)
+//    (&/,A_1..n), A_1 |- A_1, (Truth:StructuralDeduction, Desire:StructuralStrong)
+//    (&|,A_1..n), A_1 |- A_1, (Truth:StructuralDeduction, Desire:StructuralStrong)
+//    (&/,B,A_1..n), B, task("!") |- (&/,A_1..n), (Truth:Deduction, Desire:Strong, SequenceIntervals:FromPremises)
+//
+////// propositional decomposition ////////////////////////////////////////////////////////////////////////////////////
+////If S is the case, and (&&,S,A_1..n) is not the case, it can't be that (&&,A_1..n) is the case
+//
+//    S, (&/,S,A_1..n) |- (&/,A_1..n), (Truth:DeductionPositiveNegativeNegative, SequenceIntervals:FromPremises)
+//    S, (&|,S,A_1..n) |- (&|,A_1..n), (Truth:DeductionPositiveNegativeNegative)
+//    S, (&&,S,A_1..n) |- (&&,A_1..n), (Truth:DeductionPositiveNegativeNegative)
+//    S, (||,S,A_1..n) |- (||,A_1..n), (Truth:DeductionNegativePositivePositive)
+//
+////Additional for negation: https://groups.google.com/forum/#!topic/open-nars/g-7r0jjq2Vc
+//
+//    S, (&/,(--,S),A_1..n) |- (&/,A_1..n), (Truth:DeductionNegativeNegativeNegative, SequenceIntervals:FromPremises)
+//    S, (&|,(--,S),A_1..n) |- (&|,A_1..n), (Truth:DeductionNegativeNegativeNegative)
+//    S, (&&,(--,S),A_1..n) |- (&&,A_1..n), (Truth:DeductionNegativeNegativeNegative)
+//    S, (||,(--,S),A_1..n) |- (||,A_1..n), (Truth:DeductionPositivePositivePositive)
+
+
+
+
+//            //--is(A,"#"),
+//       B, (  (&&,  C,A..+) ==> X)       |-   unisubst((&&,X,A..+),C,B), (Belief:Abduction)
+//       B, (  (&&,--C,A..+) ==> X)       |-   unisubst((&&,X,A..+),C,B), (Belief:AbductionN)
+//       B, (--(&&,  C,A..+) ==> X)       |- --unisubst((&&,X,A..+),C,B), (Belief:Abduction)
+//       B, (--(&&,--C,A..+) ==> X)       |- --unisubst((&&,X,A..+),C,B), (Belief:AbductionN)
+
+
+        //TODO more question variations
+//        Y, (  C ==> Z), is(C,"&&"),eventOf(C,Y)    |- (  condWithoutAny(C,  Y) ==> Z), (Belief:Pre)
+//        Y, (--C ==> Z), is(C,"&&"),eventOf(C,Y)    |- (--condWithoutAny(C,  Y) ==> Z), (Belief:Pre)
+//        Y, (  C ==> Z), is(C,"&&"),eventOfNeg(C,Y)    |- (  condWithoutAny(C,--Y) ==> Z), (Belief:PreN)
+//        Y, (--C ==> Z), is(C,"&&"),eventOfNeg(C,Y)    |- (--condWithoutAny(C,--Y) ==> Z), (Belief:PreN)
+                //TODO eventsOf
+        //Y, (  C ==> Z), isUnneg(C,"&&") |- unisubst((C ==> Z), unifiableSubEvent(C,Y),Y,novel), (Belief:Pre)
+        //Y, (  C ==> Z), isUnneg(C,"&&") |- unisubst((C ==> Z), unifiableSubEvent(C,--Y),--Y,novel), (Belief:PreN)
+          //Y, ((&&,X,A..+) ==> Z), neq(X,Y) |- unisubst(((&&,X,A..+) ==> Z), X,Y,novel), (Belief:Deduction)
+           //Y, ((&&,X,A..+) ==> Z) |- unisubst(((&&,X,Y,A..+) ==> Z), X,Y), (Belief:Deduction)
+
+          //Y, ((&&,--X,A..+) ==> Z), neq(X,Y) |- unisubst(((&&,--X,A..+) ==> Z), X,Y,novel), (Belief:DeductionN)
+           //Y, ((&&,--X,A..+) ==> Z) |- unisubst(((&&,--X,--Y,A..+) ==> Z), X,Y), (Belief:DeductionN)
+                //Y, (--(&&,X,A..+) ==> Z), neq(X,Y) |- unisubst((--(&&,X,A..+) ==> Z), X,Y,novel), (Belief:Deduction)
+                 //Y, (--(&&,X,A..+) ==> Z) |- unisubst((--(&&,X,Y,A..+) ==> Z), X,Y), (Belief:Deduction)
+                //Y, (--(&&,--X,A..+) ==> Z), neq(X,Y) |- unisubst((--(&&,--X,A..+) ==> Z), X,Y,novel), (Belief:DeductionN)
+                 //Y, (--(&&,--X,A..+) ==> Z) |- unisubst((--(&&,--X,--Y,A..+) ==> Z), X,Y), (Belief:DeductionN)
+
+
+
+
+//        (Z ==> C), Y, is(C,"&&"),eventOf(C,Y)                 |- (Z ==> condWithoutAny(C,    Y)), (Belief:Induction)
+//        (Z ==> C), Y, is(C,"&&"),eventOfNeg(C,Y)              |- (Z ==> condWithoutAny(C,  --Y)), (Belief:InductionPN)
+//        (Z ==> C), Y, is(C,"&&")                              |- unisubst((Z ==> C),unifiableSubEvent(C,Y),Y,novel), (Belief:Induction)
+//        (Z ==> C), Y, is(C,"&&"),has(C,"--")                  |- unisubst((Z ==> C),unifiableSubEvent(C,--Y),--Y,novel), (Belief:InductionPN)
+          //Y, (Z ==> (&&,X,A..+)), neq(X,Y),neq(Y,Z) |- unisubst((Z ==> (&&,X,A..+)), X,Y,novel), (Belief:Abduction)
+            //Y, (Z ==> (&&,X,A..+)) |- unisubst((Z ==> (&&,X,Y,A..+)), X,Y), (Belief:Abduction)
+          //Y, (Z ==> (&&,--X,A..+)), neq(X,Y),neq(Y,Z) |- unisubst((Z ==> (&&,--X,A..+)), X,Y,novel), (Belief:AbductionN)
+            //Y, (Z ==> (&&,--X,A..+)) |- unisubst((Z ==> (&&,--X,--Y,A..+)), X,Y), (Belief:AbductionN)
+
+
+
+
+    //is there another sequence that doesnt involve what i dont want?
+    //X, C, eventOf(C,X), task("!")    |- substitute(C, X, --X), (Punctuation:Quest)
+    //to the degree that the desired sequence includes state which is not the case, desire that case
+    //C, X, eventOf(C,X)    |- X, (Goal:ConductWeakPN)
+    //C, X, eventOfNeg(C,X) |- --X, (Goal:ConductWeak)
+
+    //to the degree that the un-desired sequence includes state which is the case, desire not that case
+    //C, X, eventOf(C,X)    |- --X, (Goal:ConductWeakN, Time:BeliefInTask)
+    //C, X, eventOfNeg(C,X) |- X, (Goal:ConductWeakNN, Time:BeliefInTask)
+
+
+
+        //desire what co-occurs with satisfied goal
+        //X, C, eventOf(C,X)    |- C, (Goal:ConductWeak)
+        //X, C, eventOfNeg(C,X) |- --C, (Goal:ConductWeak)
+        //X, C, eventOf(C,X)    |- --C, (Goal:ConductWeakN)
+        //X, C, eventOfNeg(C,X) |- C, (Goal:ConductWeakN)
+            //X, C, eventOf(C,X)    |- condWithoutAny(C,X), (Goal:ConductWeak)
+            //X, C, eventOfNeg(C,X) |- condWithoutAny(C,--X), (Goal:ConductWeakN)
+
+
+
+
+
+//goal contained in conjunction/impl, weakly desire the entire conj; guilt by association
+//    X, C, eventOf(C,X)      |- polarize(C,task), (Goal:WeakDepolarizedTask)
+//        X, (A==>C), eventOf(C,X)      |- polarize(A,task), (Goal:WeakDepolarizedTask)
+//          X, (A==>C), eventOf(C,X)      |- (--,polarize(A,task)), (Goal:WeakDepolarizedTaskPN)
+//    X, C, eventOfNeg(C,X)   |- (--,polarize(C,task)), (Goal:WeakDepolarizedTask)
+//        X, (A==>C), eventOfNeg(C,X)   |- (--,polarize(A,task)), (Goal:WeakDepolarizedTask)
+//          X, (A==>C), eventOfNeg(C,X)   |- polarize(A,task), (Goal:WeakDepolarizedTaskPN)
+//    X, C, eventOf(C,X)      |- (--,polarize(C,task)), (Goal:WeakDepolarizedTaskN)
+//        X, (A==>C), eventOf(C,X)      |- (--,polarize(A,task)), (Goal:WeakDepolarizedTaskN)
+//          X, (A==>C), eventOf(C,X)      |- polarize(A,task), (Goal:WeakDepolarizedTaskNN)
+//    X, C, eventOfNeg(C,X)   |- polarize(C,task), (Goal:WeakDepolarizedTaskN)
+//        X, (A==>C), eventOfNeg(C,X)   |- polarize(A,task), (Goal:WeakDepolarizedTaskN)
+//          X, (A==>C), eventOfNeg(C,X)   |- (--,polarize(A,task)), (Goal:WeakDepolarizedTaskNN)
+
+    //X is the desired non-outcome. C is a sequence ending in it.  this forms a weak antigoal of the sequence minus the trailing
+    //X, C, eventOfNeg(C,X) |- (--,conjDropIfLatest(C,--X)), (Goal:Weak)
+    //X is the undesired outcome. C is a sequence ending in it.  this forms a weak antigoal of the sequence minus the trailing
+    //X, C, eventOf(C,X) |- (--,conjDropIfLatest(C,X)), (Goal:WeakN)

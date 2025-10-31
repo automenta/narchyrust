@@ -1,0 +1,38 @@
+
+//Query Variable Spidering
+    (?1 --> X), X, task("?") |- (termlinkRandom(X) --> X),  (Punctuation:Question)
+    (X --> ?1), X, task("?") |- (X --> termlinkRandom(X)),  (Punctuation:Question)
+
+    (?1 ==> X), X, task("?")   |-      (termlinkRandom(X) ==>+- X),  (Punctuation:Question)
+    (?1 ==> X), X, task("?")   |- ((--,termlinkRandom(X)) ==>+- X),  (Punctuation:Question)
+    (X ==> ?1), X, task("?")   |-     (X ==>+- termlinkRandom(X)),  (Punctuation:Question)
+    (--X ==> ?1), X, task("?") |-     (X ==>+- termlinkRandom(X)),  (Punctuation:Question)
+
+
+//NAL3-in-Conjunction compose/decompose (experimental)
+//    (&&,(P-->X),(P-->Y),A..+), S, notSet(S) |- (&&,(P-->(X&Y)),A..+), (Belief:StructuralDeduction, Goal:StructuralDeduction)
+//    (&&,(M-->S),A..+), (M-->S), is(S,"&&") |- (&&,(M --> dropAnySet(S)),A..+), (Belief:StructuralDeduction, Goal:StructuralDeduction)
+
+
+
+
+//WASTEPAPER ===
+
+//Single product variations
+//    (S), (P), neqRec(S,P) |- (S | P), (Belief:Union),
+//                                                  (S & P), (Belief:Intersection),
+//                                                  (P ~ S), (Belief:Difference)
+
+
+//DeMorgan's Law - currently implemented as a reduction but possibly should be a structural rule
+    //<sseehh__> it becomes more helpful when there are >2 terms, ex: (&&, --(x), --(y), --(z))
+    //<sseehh__> then it can replace N negations with one
+    //<sseehh__> then the compound and its opposite resolve to the same compound
+    //<patham9> if then I would add it as structural rule
+    //<patham9> not as "reduction"
+    //<patham9> meaning the system has free choice about the representation
+    //<patham9> should have
+    //<sseehh__> thats possible
+    //<patham9> and I wouldnt apply StructuralDeduction as truth
+
+
