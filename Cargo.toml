@@ -1,0 +1,41 @@
+[package]
+name = "nar"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# For data structures and algorithms
+hashbrown = "0.14"
+indexmap = "2.0"
+slotmap = "1.0"
+bitflags = "2.4"
+
+# For mathematical operations
+num-traits = "0.2"
+ordered-float = { version = "3.0", features = ["serde"] }
+
+# For serialization support (optional)
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+# For concurrency
+parking_lot = "0.12"
+crossbeam = "0.8"
+
+# For error handling
+thiserror = "1.0"
+
+# For logging
+log = "0.4"
+
+# For random number generation
+rand = "0.8"
+
+# For efficient string operations
+smartstring = "1.0"
+
+[dev-dependencies]
+criterion = "0.5"
+
+[features]
+default = []
+serde = ["dep:serde", "ordered-float/serde"]
