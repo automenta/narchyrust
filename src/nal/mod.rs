@@ -13,7 +13,7 @@ use crate::term::Term;
 use crate::truth::Truth;
 use crate::task::{Task, Punctuation, Time, Budget, TaskBuilder};
 use crate::concept::TaskConcept;
-use crate::memory::serial::Memory;
+use crate::memory::simple::SimpleMemory as Memory;
 use crate::bag::Bag;
 use std::sync::atomic::{AtomicU64, Ordering};
 use rand::seq::SliceRandom;
@@ -40,7 +40,7 @@ impl NAR {
     /// Create a new NAR instance
     pub fn new() -> Self {
         NAR {
-            memory: Memory::new(),
+            memory: Memory::new(10000),
             time: 0,
             next_task_id: AtomicU64::new(1),
             default_budget: Budget::new(0.5, 0.5, 0.5),
@@ -51,7 +51,7 @@ impl NAR {
     /// Create a new NAR instance with custom attention parameters
     pub fn with_attention(attention: Attention) -> Self {
         NAR {
-            memory: Memory::new(),
+            memory: Memory::new(10000),
             time: 0,
             next_task_id: AtomicU64::new(1),
             default_budget: Budget::new(0.5, 0.5, 0.5),
@@ -67,14 +67,12 @@ impl NAR {
     /// Advance the clock by one step
     pub fn step(&mut self) {
         self.time += 1;
-        
-        // Apply activation decay to concepts
         self.memory.decay_activation(self.attention.activation_decay_rate);
     }
     
     /// Get a concept by term
-    pub fn concept(&self, term: &Term) -> Option<&TaskConcept> {
-        self.memory.get_concept(term)
+    pub fn concept(&mut self, term: &Term) -> Option<&mut TaskConcept> {
+        self.memory.get_concept_mut(term)
     }
     
     /// Get a mutable reference to a concept by term
@@ -340,12 +338,11 @@ impl NAR {
         // Occasionally select a random concept for inference
         if rand::random::<f32>() < self.attention.random_selection_prob {
             let all_concept_terms: Vec<Term> = self.memory.concepts()
-                .iter()
                 .map(|c| c.term().clone())
                 .collect();
                 
             if let Some(random_term) = all_concept_terms.choose(&mut rand::thread_rng()) {
-                if let Some(concept) = self.memory.get_concept(random_term) {
+                if let Some(concept) = self.concept(random_term) {
                     if let Some(best_belief) = concept.best_belief(None) {
                         // Clone the best belief for processing
                         let best_belief_clone = best_belief.clone();
@@ -396,7 +393,7 @@ impl NAR {
             let task_clone = task.clone();
             
             // Get a random concept term
-            let all_concepts: Vec<&TaskConcept> = self.memory.concepts();
+            let all_concepts: Vec<&TaskConcept> = self.memory.concepts().collect();
                 
             if let Some(random_concept) = all_concepts.choose(&mut rand::thread_rng()) {
                 // Skip if it's the same concept
@@ -419,12 +416,12 @@ impl NAR {
     
     /// Get all concepts
     pub fn concepts(&self) -> Vec<&TaskConcept> {
-        self.memory.concepts()
+        self.memory.concepts().collect()
     }
     
     /// Get memory statistics
     pub fn stats(&self) -> NARStats {
-        let concepts = self.memory.concepts();
+        let concepts: Vec<&TaskConcept> = self.memory.concepts().collect();
         let active_concepts = concepts.iter().filter(|c| c.activation() > self.attention.min_attention_threshold).count();
         NARStats {
             time: self.time,

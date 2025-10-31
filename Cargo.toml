@@ -29,6 +29,7 @@ log = "0.4"
 
 # For random number generation
 rand = "0.8"
+lru = "0.12.3"
 
 # For efficient string operations
 smartstring = "1.0"

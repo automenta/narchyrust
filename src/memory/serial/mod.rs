@@ -2,19 +2,16 @@
 //!
 //! This is a new single-threaded implementation of the memory system.
 
-pub mod radix_tree;
-
 use crate::concept::TaskConcept;
 use crate::term::{Term, TermTrait};
-use crate::memory::serial::radix_tree::RadixTree;
+use std::collections::HashMap;
 use std::fmt;
-use rand::Rng;
 
 /// Memory struct representing the NARS memory system
 #[derive(Debug)]
 pub struct Memory {
-    /// Concepts stored in memory using a radix tree
-    concepts: RadixTree<TaskConcept>,
+    /// Concepts stored in memory using a hash map
+    concepts: HashMap<Term, TaskConcept>,
 
     /// Maximum number of concepts in memory
     capacity: usize,
@@ -29,7 +26,7 @@ impl Memory {
     /// Create a new memory with a specific capacity
     pub fn with_capacity(capacity: usize) -> Self {
         Memory {
-            concepts: RadixTree::new(capacity),
+            concepts: HashMap::with_capacity(capacity),
             capacity,
         }
     }
@@ -46,88 +43,39 @@ impl Memory {
 
     /// Get a concept by term
     pub fn get_concept(&self, term: &Term) -> Option<&TaskConcept> {
-        let key = Self::term_to_key(term);
-        self.concepts.get(&key)
+        self.concepts.get(term)
     }
 
     /// Get a mutable reference to a concept by term
     pub fn get_concept_mut(&mut self, term: &Term) -> Option<&mut TaskConcept> {
-        let key = Self::term_to_key(term);
-        self.concepts.get_mut(&key)
+        self.concepts.get_mut(term)
     }
 
     /// Add or update a concept in memory
     pub fn add_concept(&mut self, concept: TaskConcept) {
-        let key = Self::term_to_key(concept.term());
-        self.concepts.insert(key, concept);
+        self.concepts.insert(concept.term().clone(), concept);
     }
 
     /// Create a concept for a term if it doesn't exist
     pub fn get_or_create_concept(&mut self, term: &Term) -> &mut TaskConcept {
-        let key = Self::term_to_key(term);
-
-        if !self.concepts.contains_key(&key) {
-            let concept = TaskConcept::new(term.clone());
-            self.concepts.insert(key.clone(), concept);
-        }
-        self.concepts.get_mut(&key).unwrap()
+        self.concepts
+            .entry(term.clone())
+            .or_insert_with(|| TaskConcept::new(term.clone()))
     }
 
     /// Remove a concept from memory
     pub fn remove_concept(&mut self, term: &Term) -> Option<TaskConcept> {
-        let key = Self::term_to_key(term);
-        self.concepts.remove(&key)
-    }
-
-    /// Apply activation decay to all concepts
-    pub fn decay_activation(&mut self, rate: f32) {
-        for concept in self.concepts.values_mut() {
-            concept.decay_activation(rate);
-        }
-    }
-
-    /// Forget concepts to stay within capacity
-    pub fn forget_concepts(&mut self) {
-        let overflow = self.concepts.len().saturating_sub(self.capacity);
-        if overflow > 0 {
-            // A more sophisticated implementation would use a more targeted approach
-            // For now, we'll remove a random selection of concepts
-            let mut keys_to_remove = Vec::new();
-            let mut all_keys = Vec::new();
-            // This is inefficient, but it's a starting point
-            // A better approach would be to have the radix tree provide a way to get all keys
-            // or to iterate over the concepts and collect their keys
-            for concept in self.concepts.values() {
-                all_keys.push(Self::term_to_key(concept.term()));
-            }
-
-            let mut rng = rand::thread_rng();
-            for _ in 0..overflow {
-                if all_keys.is_empty() {
-                    break;
-                }
-                let index = rng.gen_range(0..all_keys.len());
-                keys_to_remove.push(all_keys.swap_remove(index));
-            }
-
-            for key in keys_to_remove {
-                self.concepts.remove(&key);
-            }
-        }
+        self.concepts.remove(term)
     }
 
     /// Get all concepts
-    pub fn concepts(&self) -> Vec<&TaskConcept> {
+    pub fn concepts(&self) -> impl Iterator<Item = &TaskConcept> {
         self.concepts.values()
     }
 
-    /// Convert a term to a byte sequence for use as a key in the radix tree
-    fn term_to_key(term: &Term) -> Vec<u8> {
-        let complexity = term.complexity() as u16;
-        let mut key = Vec::with_capacity(2 + 32);
-        key.extend_from_slice(&complexity.to_be_bytes());
-        key.extend(format!("{}", term.concept()).as_bytes());
-        key
+    /// Clear all concepts from memory
+    pub fn clear(&mut self) {
+        self.concepts.clear();
     }
 }
 

@@ -3,7 +3,7 @@
 //! This module implements the core NAR (Non-Axiomatic Reasoner) class based on the Java implementation.
 //! The NAR manages the reasoning cycle, memory operations, and I/O channels.
 
-use crate::memory::Memory;
+use crate::memory::simple::SimpleMemory as Memory;
 use crate::concept::TaskConcept;
 use crate::task::Task;
 use crate::term::Term;
@@ -35,10 +35,10 @@ pub struct NAR {
 
 impl NAR {
     /// Create a new NAR instance
-    pub fn new(memory: Memory, time: Time, concept_builder: ConceptBuilder) -> Self {
+    pub fn new(time: Time, concept_builder: ConceptBuilder) -> Self {
         let time_ref = Arc::new(time);
         let mut nar = NAR {
-            memory,
+            memory: Memory::new(10000),
             concept_builder,
             time: time_ref.clone(),
             self_term: Term::Atomic(crate::term::atom::Atomic::new_atom("self")),
@@ -89,7 +89,7 @@ impl NAR {
     pub fn conceptualize(&mut self, term: &Term) -> Option<TaskConcept> {
         if let Some(concept) = self.memory.get_concept(term) {
             // If it already exists, return it
-            Some(concept)
+            Some(concept.clone())
         } else {
             // If not, create it using the concept builder
             let concept = self.concept_builder.build(term, true, false);
@@ -103,8 +103,8 @@ impl NAR {
     }
     
     /// Get a concept if it exists
-    pub fn concept(&self, term: &Term) -> Option<TaskConcept> {
-        self.memory.get_concept(term)
+    pub fn concept(&mut self, term: &Term) -> Option<TaskConcept> {
+        self.memory.get_concept(term).cloned()
     }
     
     /// Start the NAR in a loop with given frames per second
@@ -125,12 +125,12 @@ impl NAR {
     /// Single reasoning cycle
     pub fn cycle(&mut self) {
         // 1. Select a concept
-        let concepts = self.memory.concepts();
+        let concepts: Vec<&TaskConcept> = self.memory.concepts().collect();
         if concepts.is_empty() {
             return;
         }
         let concept_index = self.rand_range(0, concepts.len());
-        let concept = &concepts[concept_index];
+        let concept = concepts[concept_index];
 
         // 2. Select a task from the concept
         let tasks = concept.tasks(true, true, true, true);
@@ -161,7 +161,7 @@ impl NAR {
     }
     
     /// Get belief truth for a concept at a time range
-    pub fn belief_truth(&self, concept: &Term, _start: i64, _end: i64) -> Option<Truth> {
+    pub fn belief_truth(&mut self, concept: &Term, _start: i64, _end: i64) -> Option<Truth> {
         if let Some(concept_obj) = self.concept(concept) {
             concept_obj.beliefs().truth(_start, _end, concept)
         } else {
@@ -170,7 +170,7 @@ impl NAR {
     }
     
     /// Get goal truth for a concept at a time range
-    pub fn goal_truth(&self, concept: &Term, _start: i64, _end: i64) -> Option<Truth> {
+    pub fn goal_truth(&mut self, concept: &Term, _start: i64, _end: i64) -> Option<Truth> {
         if let Some(concept_obj) = self.concept(concept) {
             concept_obj.goals().truth(_start, _end, concept)
         } else {
@@ -179,7 +179,7 @@ impl NAR {
     }
     
     /// Get answer for a question
-    pub fn answer(&self, term: &Term, punc: u8, _start: i64, _end: i64) -> Option<Task> {
+    pub fn answer(&mut self, term: &Term, punc: u8, _start: i64, _end: i64) -> Option<Task> {
         // Get the concept for the term
         if let Some(concept) = self.concept(term) {
             // Based on punctuation, get the appropriate table
@@ -213,20 +213,18 @@ mod tests {
 
     #[test]
     fn test_nar_creation() {
-        let memory = Memory::new();
         let time = Time::new();
         let concept_builder = ConceptBuilder::new();
-        let mut nar = NAR::new(memory, time, concept_builder);
+        let mut nar = NAR::new(time, concept_builder);
         
         assert_eq!(nar.running, false);
     }
 
     #[test]
     fn test_nar_input() {
-        let memory = Memory::new();
         let time = Time::new();
         let concept_builder = ConceptBuilder::new();
-        let mut nar = NAR::new(memory, time, concept_builder);
+        let mut nar = NAR::new(time, concept_builder);
         
         // Test creating a simple task
         let term = Term::Atomic(Atomic::new_atom("test"));
@@ -246,10 +244,9 @@ mod tests {
     
     #[test]
     fn test_conceptualize() {
-        let memory = Memory::new();
         let time = Time::new();
         let concept_builder = ConceptBuilder::new();
-        let mut nar = NAR::new(memory, time, concept_builder);
+        let mut nar = NAR::new(time, concept_builder);
         
         let term = Term::Atomic(Atomic::new_atom("test_concept"));
         let concept = nar.conceptualize(&term);
