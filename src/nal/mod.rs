@@ -7,6 +7,7 @@
 //! - Reasoning control
 
 pub mod nar;
+pub mod inference;
 
 use crate::term::Term;
 use crate::truth::Truth;

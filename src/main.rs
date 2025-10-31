@@ -11,9 +11,9 @@ fn main() {
     
     // Input some initial knowledge
     println!("\nInputting initial knowledge...");
-    nar.input_sentence("cat.").expect("Failed to input 'cat.'");
-    nar.input_sentence("dog.").expect("Failed to input 'dog.'");
-    nar.input_sentence("animal.").expect("Failed to input 'animal.'");
+    nar.input_sentence("<cat --> animal>.").expect("Failed to input sentence.");
+    nar.input_sentence("<dog --> animal>.").expect("Failed to input sentence.");
+    nar.input_sentence("<cat --> furry>.").expect("Failed to input sentence.");
     
     // Show initial state
     let stats = nar.stats();
@@ -23,10 +23,8 @@ fn main() {
     
     // Run a few cycles of reasoning
     println!("\nRunning reasoning cycles...");
-    for i in 1..=5 {
+    for _ in 1..=10 {
         nar.cycle();
-        let stats = nar.stats();
-        println!("  Cycle {}: {} concepts", i, stats.concepts);
     }
     
     // Show final state

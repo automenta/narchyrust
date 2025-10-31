@@ -19,6 +19,12 @@ pub struct Truth {
     confidence: OrderedFloat<f32>,
 }
 
+impl Default for Truth {
+    fn default() -> Self {
+        Self::new(0.0, 0.0)
+    }
+}
+
 impl Truth {
     /// Create a new truth value
     pub fn new(frequency: f32, confidence: f32) -> Self {

@@ -242,8 +242,8 @@ pub struct RadixTree<V> {
     capacity: usize,
 }
 
-impl<V> RadixTree<V> 
-where 
+impl<V> RadixTree<V>
+where
     V: Clone + Debug,
 {
     /// Create a new radix tree with the specified capacity
@@ -311,11 +311,6 @@ where
             insert_recursive(&mut root, key, value, &mut self.size)
         };
         
-        // If we're exceeding capacity, perform garbage collection
-        if self.size > self.capacity {
-            self.perform_garbage_collection();
-        }
-        
         result
     }
     
@@ -331,19 +326,6 @@ where
         result
     }
     
-    
-    /// Perform garbage collection to remove excess concepts
-    fn perform_garbage_collection(&mut self) {
-        // This is a placeholder implementation
-        // In a real implementation, this would remove concepts based on priority/budget
-        // For now, we'll just remove random concepts if we exceed capacity by too much
-        let overflow = self.size.saturating_sub(self.capacity);
-        if overflow > 0 {
-            // Remove some concepts (simplified implementation)
-            // A real implementation would use a more sophisticated strategy
-        }
-    }
-    
     /// Get all values in the tree
     pub fn values(&self) -> Vec<V> {
         let root = self.root.read();
@@ -357,7 +339,7 @@ where
         if let Some(value) = node.value() {
             result.push(value.clone());
         }
-        
+
         for child in node.children().values() {
             let child_node = child.read();
             self.collect_values(&child_node, result);
@@ -365,17 +347,38 @@ where
     }
     
     /// Update a value with a function
-    pub fn update_with<F>(&mut self, key: Vec<u8>, f: F) -> Option<V>
+    pub fn update_with<F>(&mut self, key: &[u8], f: F) -> Option<V>
     where
-        F: FnOnce(V) -> V,
+        F: FnOnce(&mut V),
     {
-        if let Some(value) = self.remove(&key) {
-            let new_value = f(value);
-            self.insert(key, new_value.clone());
-            Some(new_value)
-        } else {
-            None
+        let mut root = self.root.write();
+        self.update_recursive(&mut root, key, f)
+    }
+
+    /// Helper function to recursively update a value
+    fn update_recursive<F>(&self, node: &mut RadixTreeNode<V>, key: &[u8], f: F) -> Option<V>
+    where
+        F: FnOnce(&mut V),
+    {
+        if key.is_empty() {
+            if let Some(value) = node.value_mut() {
+                f(value);
+                return Some(value.clone());
+            }
+            return None;
         }
+
+        let first_byte = key[0];
+        if let Some(child) = node.get_child(first_byte) {
+            let mut child_node = child.write();
+            let fragment = child_node.key_fragment().to_vec();
+
+            if key.len() >= fragment.len() && &key[..fragment.len()] == &fragment[..] {
+                let remaining_key = &key[fragment.len()..];
+                return self.update_recursive(&mut child_node, remaining_key, f);
+            }
+        }
+        None
     }
 }
 

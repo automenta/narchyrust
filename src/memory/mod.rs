@@ -108,7 +108,26 @@ impl Memory {
         let key = Self::term_to_key(concept.term());
         self.concepts.insert(key, concept);
         
-        // The radix tree handles capacity management internally
+        if self.concepts.len() > self.capacity {
+            self.perform_garbage_collection();
+        }
+    }
+
+    /// Perform garbage collection to remove excess concepts
+    fn perform_garbage_collection(&mut self) {
+        let overflow = self.concepts.len().saturating_sub(self.capacity);
+        if overflow > 0 {
+            let mut concepts: Vec<TaskConcept> = self.concepts.values();
+
+            concepts.sort_by(|a, b| {
+                a.activation().partial_cmp(&b.activation()).unwrap()
+            });
+
+            for concept in concepts.iter().take(overflow) {
+                let key = Self::term_to_key(concept.term());
+                self.concepts.remove(&key);
+            }
+        }
     }
     
     /// Create a concept for a term if it doesn't exist
@@ -132,16 +151,27 @@ impl Memory {
     
     /// Apply activation decay to all concepts
     pub fn decay_activation(&mut self, rate: f32) {
-        // Get all concepts, decay them, and reinsert them
-        let concepts = self.concepts.values();
-        // In a real implementation, we would need to handle this differently
-        // For now, we'll skip this implementation detail
+        // Get all concepts and decay their activation in-place
+        let concepts_to_update: Vec<TaskConcept> = self.concepts.values();
+
+        for concept in concepts_to_update {
+            let key = Self::term_to_key(concept.term());
+            self.concepts.update_with(&key, |c| {
+                c.decay_activation(rate);
+            });
+        }
     }
     
     /// Forget concepts with low activation
     pub fn forget_concepts(&mut self) {
-        // The radix tree handles forgetting internally based on capacity
-        // In a more sophisticated implementation, we would implement priority-based forgetting
+        let concepts_to_check: Vec<TaskConcept> = self.concepts.values();
+
+        for concept in concepts_to_check {
+            if concept.activation() < self.min_activation {
+                let key = Self::term_to_key(concept.term());
+                self.concepts.remove(&key);
+            }
+        }
     }
     
     /// Get all concepts
@@ -314,18 +344,28 @@ mod tests {
     fn test_memory_capacity() {
         let mut memory = Memory::with_capacity(2);
         assert_eq!(memory.capacity(), 2);
-        
+
         let term1 = Term::Atomic(Atomic::new_atom("cat"));
         let term2 = Term::Atomic(Atomic::new_atom("dog"));
         let term3 = Term::Atomic(Atomic::new_atom("bird"));
-        
-        memory.get_or_create_concept(&term1);
-        memory.get_or_create_concept(&term2);
-        memory.get_or_create_concept(&term3);
-        
-        // Adding the third concept might trigger forgetting if activation is low
-        // but since we haven't set activations, all concepts should still be there
-        assert!(memory.len() <= 3);
+
+        let mut concept1 = memory.get_or_create_concept(&term1);
+        concept1.set_activation(0.3);
+        memory.add_concept(concept1);
+
+        let mut concept2 = memory.get_or_create_concept(&term2);
+        concept2.set_activation(0.2);
+        memory.add_concept(concept2);
+
+        let mut concept3 = memory.get_or_create_concept(&term3);
+        concept3.set_activation(0.4);
+        memory.add_concept(concept3);
+
+        // The concept with the lowest activation (dog) should be removed
+        assert_eq!(memory.len(), 2);
+        assert!(memory.get_concept(&term1).is_some());
+        assert!(memory.get_concept(&term2).is_none());
+        assert!(memory.get_concept(&term3).is_some());
     }
 
     #[test]
@@ -353,51 +393,96 @@ mod tests {
     fn test_activation_decay() {
         let mut memory = Memory::new();
         let term = Term::Atomic(Atomic::new_atom("cat"));
-        
+
         // Create concept and set high activation
         let mut concept = memory.get_or_create_concept(&term);
         concept.set_activation(1.0);
         memory.add_concept(concept);
-        
+
         // Check initial activation
         let concept_ref = memory.get_concept(&term).unwrap();
         assert_eq!(concept_ref.activation(), 1.0);
-        
+
         // Apply decay
         memory.decay_activation(0.1);
-        
+
         // Check that activation decreased
         let concept_ref = memory.get_concept(&term).unwrap();
-        // Skip this assertion since decay_activation is not implemented yet
-        // assert!(concept_ref.activation() < 1.0);
+        assert!((concept_ref.activation() - 0.9).abs() < 0.001);
     }
 
     #[test]
     fn test_forget_concepts() {
         let mut memory = Memory::new();
         memory.set_min_activation(0.5);
-        
+
         let term1 = Term::Atomic(Atomic::new_atom("cat"));
         let term2 = Term::Atomic(Atomic::new_atom("dog"));
-        
+
         // Create concepts
         let mut concept1 = memory.get_or_create_concept(&term1);
         concept1.set_activation(0.3); // Below threshold
         memory.add_concept(concept1);
-        
+
         let mut concept2 = memory.get_or_create_concept(&term2);
         concept2.set_activation(0.7); // Above threshold
         memory.add_concept(concept2);
-        
+
         assert_eq!(memory.len(), 2);
-        
+
         // Forget concepts with low activation
         memory.forget_concepts();
-        
-        // The radix tree doesn't implement threshold-based forgetting yet
-        // so we'll just check that the concepts still exist
-        assert_eq!(memory.len(), 2);
+
+        // Check that the correct concept was forgotten
+        assert_eq!(memory.len(), 1);
+        assert!(memory.get_concept(&term1).is_none());
         assert!(memory.get_concept(&term2).is_some());
-        assert!(memory.get_concept(&term1).is_some());
+    }
+
+    #[test]
+    fn test_forget_concepts_empty_memory() {
+        let mut memory: Memory = Memory::new();
+        memory.forget_concepts();
+        assert_eq!(memory.len(), 0);
+    }
+
+    #[test]
+    fn test_forget_concepts_no_forget() {
+        let mut memory = Memory::new();
+        memory.set_min_activation(0.1);
+
+        let term1 = Term::Atomic(Atomic::new_atom("cat"));
+        let term2 = Term::Atomic(Atomic::new_atom("dog"));
+
+        let mut concept1 = memory.get_or_create_concept(&term1);
+        concept1.set_activation(0.2);
+        memory.add_concept(concept1);
+
+        let mut concept2 = memory.get_or_create_concept(&term2);
+        concept2.set_activation(0.3);
+        memory.add_concept(concept2);
+
+        memory.forget_concepts();
+        assert_eq!(memory.len(), 2);
+    }
+
+    #[test]
+    fn test_forget_concepts_all_forget() {
+        let mut memory = Memory::new();
+        memory.set_min_activation(0.5);
+
+        let term1 = Term::Atomic(Atomic::new_atom("cat"));
+        let term2 = Term::Atomic(Atomic::new_atom("dog"));
+
+        let mut concept1 = memory.get_or_create_concept(&term1);
+        concept1.set_activation(0.2);
+        memory.add_concept(concept1);
+
+        let mut concept2 = memory.get_or_create_concept(&term2);
+        concept2.set_activation(0.3);
+        memory.add_concept(concept2);
+
+        memory.forget_concepts();
+        assert_eq!(memory.len(), 0);
     }
 }

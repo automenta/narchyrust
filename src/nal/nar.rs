@@ -10,6 +10,7 @@ use crate::term::Term;
 use crate::concept::util::ConceptBuilder;
 use crate::time::Time;
 use crate::truth::Truth;
+use crate::task::TaskBuilder;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -68,10 +69,20 @@ impl NAR {
     }
     
     /// Input a string as a task
-    pub fn input_string(&mut self, input: &str) -> Result<Vec<Task>, String> {
-        // This would parse Narsese, simplified for now
-        // In a real implementation, this would use the parser module
-        Ok(vec![]) // Placeholder
+    pub fn input_string(&mut self, input: &str) -> Result<Vec<crate::task::Task>, String> {
+        let (term, truth, punctuation, time) = crate::parser::Parser::parse_sentence(input).map_err(|e| e.to_string())?;
+
+        let task = TaskBuilder::new()
+            .term(term)
+            .truth(truth.unwrap_or_default())
+            .punctuation(punctuation)
+            .time(time.unwrap_or(crate::task::Time::Eternal))
+            .build()
+            .map_err(|e| e.to_string())?;
+
+        self.input(task.clone());
+
+        Ok(vec![task])
     }
     
     /// Get or create a concept
@@ -113,16 +124,32 @@ impl NAR {
     
     /// Single reasoning cycle
     pub fn cycle(&mut self) {
-        // In a real implementation, this would execute the full reasoning cycle
-        // For now, we'll just advance time
+        // 1. Select a concept
+        let concepts = self.memory.concepts();
+        if concepts.is_empty() {
+            return;
+        }
+        let concept_index = self.rand_range(0, concepts.len());
+        let concept = &concepts[concept_index];
+
+        // 2. Select a task from the concept
+        let tasks = concept.tasks(true, true, true, true);
+        if tasks.is_empty() {
+            return;
+        }
+        let task_index = self.rand_range(0, tasks.len());
+        let task = tasks[task_index];
+
+        // 3. Perform inference
+        crate::nal::inference::inference(concept, task);
+
+        // 4. Advance time
         self.time.next();
-        
-        // In the future, this would:
-        // 1. Process focus tasks
-        // 2. Apply inference rules
-        // 3. Update concepts
-        // 4. Handle emotions
-        // 5. Manage attention
+    }
+
+    // Helper function to get a random number in a range
+    fn rand_range(&self, min: usize, max: usize) -> usize {
+        min + (self.time.now() as usize % (max - min))
     }
     
     /// Reset the NAR to initial state
