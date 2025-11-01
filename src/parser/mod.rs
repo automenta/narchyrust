@@ -266,29 +266,35 @@ impl Parser {
                 Ok(Term::Compound(crate::term::compound::Compound::new_temporal(op, vec![left_term, right_term], 0)))
             } else {
                 // Regular operators
-                let op_pos = inner.find(['&', '|', '=', '-', '>', '<']).ok_or_else(||
-                    ParseError::InvalidTerm("No operator found in compound term".to_string()))?;
-                
-                // Extract operator
-                let op_str = &inner[op_pos..op_pos+1];
+                const OPERATORS: &[&str] = &["&&", "&", "||", "|", "-->", "==>", "<", ">", "=", "-"];
+
+                let mut found_op = None;
+                for &op_str in OPERATORS {
+                    if let Some(op_pos) = inner.find(op_str) {
+                        found_op = Some((op_str, op_pos));
+                        break;
+                    }
+                }
+
+                let (op_str, op_pos) = found_op.ok_or_else(|| ParseError::InvalidTerm("No operator found in compound term".to_string()))?;
+
                 let op = match op_str {
-                    "&" => Op::Conjunction,
-                    "|" => Op::Disjunction,
+                    "&&" | "&" => Op::Conjunction,
+                    "||" | "|" => Op::Disjunction,
+                    "-->" | "==>" | ">" | "<" => Op::Inheritance,
                     "=" => Op::Similarity,
                     "-" => Op::Difference,
-                    ">" => Op::Inheritance,
-                    "<" => Op::Inheritance, // This would need more context to distinguish
                     _ => return Err(ParseError::InvalidTerm(format!("Unknown operator: {}", op_str))),
                 };
-                let op_len = 1;
-                
+                let op_len = op_str.len();
+
                 // Split into subterms
                 let left_part = &inner[..op_pos].trim();
                 let right_part = &inner[op_pos+op_len..].trim();
-                
+
                 let left_term = Parser::parse_term(left_part)?;
                 let right_term = Parser::parse_term(right_part)?;
-                
+
                 Ok(Term::Compound(crate::term::compound::Compound::new(op, vec![left_term, right_term])))
             }
         }
@@ -423,11 +429,23 @@ mod tests {
     
     #[test]
     fn test_parse_compound_term() {
+        let result = Parser::parse_sentence("(cat && dog).");
+        assert!(result.is_ok());
+
+        let (term, truth, punctuation, time) = result.unwrap();
+        assert_eq!(format!("{}", term), "(cat && dog)");
+        assert!(truth.is_none());
+        assert_eq!(punctuation, Punctuation::Belief);
+        assert!(time.is_none());
+    }
+
+    #[test]
+    fn test_parse_single_and_compound_term() {
         let result = Parser::parse_sentence("(cat & dog).");
         assert!(result.is_ok());
         
         let (term, truth, punctuation, time) = result.unwrap();
-        assert_eq!(format!("{}", term), "(cat & dog)");
+        assert_eq!(format!("{}", term), "(cat && dog)");
         assert!(truth.is_none());
         assert_eq!(punctuation, Punctuation::Belief);
         assert!(time.is_none());

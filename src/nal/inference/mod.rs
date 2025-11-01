@@ -1,6 +1,6 @@
 //! Inference engine for NARS
 
-use crate::task::Task;
+use crate::task::{Task, Punctuation};
 use crate::term::{Term, Op, TermTrait};
 use crate::truth::Truth;
 use crate::task::TaskBuilder;
@@ -20,6 +20,7 @@ pub fn inference(task1: &Task, task2: &Task) -> Option<Task> {
                 let new_task = TaskBuilder::new()
                     .term(new_term)
                     .truth(Truth::default_belief()) // Placeholder truth
+                    .punctuation(Punctuation::Belief)
                     .build()
                     .unwrap();
                 return Some(new_task);
