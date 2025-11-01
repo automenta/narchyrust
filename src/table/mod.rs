@@ -215,7 +215,7 @@ mod tests {
     use super::*;
     use crate::term::Term;
     use crate::truth::Truth;
-    use crate::task::{Task, TaskBuilder, Punctuation, Budget};
+    use crate::task::{TaskBuilder, Punctuation, Budget};
 
     #[test]
     fn test_belief_table_creation() {

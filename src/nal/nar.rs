@@ -11,9 +11,10 @@ use crate::concept::util::ConceptBuilder;
 use crate::time::Time;
 use crate::truth::Truth;
 use crate::task::TaskBuilder;
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::Duration;
+use crate::focus::FocusBag;
+use crate::focus::PriTree;
+use crate::nal::deriver::Deriver;
+use std::sync::Arc;
 
 /// Non-Axiomatic Reasoner (NAR) - The main reasoning system
 pub struct NAR {
@@ -26,8 +27,17 @@ pub struct NAR {
     /// The time control system
     pub time: Arc<Time>,
     
+    /// The focus bag
+    pub focus_bag: FocusBag,
+
+    /// The priority tree
+    pub pri_tree: PriTree,
+
+    /// The deriver
+    pub deriver: Deriver,
+
     /// Self identifier term
-    self_term: Term,
+    _self_term: Term,
     
     /// Running flag
     running: bool,
@@ -41,7 +51,10 @@ impl NAR {
             memory: Memory::new(10000),
             concept_builder,
             time: time_ref.clone(),
-            self_term: Term::Atomic(crate::term::atom::Atomic::new_atom("self")),
+            focus_bag: FocusBag::new(100), // TODO: make capacity configurable
+            pri_tree: PriTree::new(),
+            deriver: Deriver::new(),
+            _self_term: Term::Atomic(crate::term::atom::Atomic::new_atom("self")),
             running: false,
         };
         
@@ -54,6 +67,9 @@ impl NAR {
     
     /// Input a task into the system
     pub fn input(&mut self, task: Task) {
+        // Add the task as a premise to the deriver
+        self.deriver.add_premise(crate::nal::deriver::Premise { task: task.clone() });
+
         // For now, add the task to memory by creating or updating its concept
         let term = task.term().clone();
         if let Some(mut concept) = self.conceptualize(&term) {
@@ -108,7 +124,7 @@ impl NAR {
     }
     
     /// Start the NAR in a loop with given frames per second
-    pub fn start_fps(&mut self, fps: f32) {
+    pub fn start_fps(&mut self, _fps: f32) {
         self.running = true;
         
         // We can't move self into the thread, so we need a different approach
@@ -124,32 +140,18 @@ impl NAR {
     
     /// Single reasoning cycle
     pub fn cycle(&mut self) {
-        // 1. Select a concept
-        let concepts: Vec<&TaskConcept> = self.memory.concepts().collect();
-        if concepts.is_empty() {
-            return;
+        // 1. Update priorities
+        self.pri_tree.commit();
+        self.focus_bag.commit();
+
+        // 2. Perform inference
+        let derived_tasks = self.deriver.step();
+        for task in derived_tasks {
+            self.input(task);
         }
-        let concept_index = self.rand_range(0, concepts.len());
-        let concept = concepts[concept_index];
 
-        // 2. Select a task from the concept
-        let tasks = concept.tasks(true, true, true, true);
-        if tasks.is_empty() {
-            return;
-        }
-        let task_index = self.rand_range(0, tasks.len());
-        let task = tasks[task_index];
-
-        // 3. Perform inference
-        crate::nal::inference::inference(concept, task);
-
-        // 4. Advance time
+        // 3. Advance time
         self.time.next();
-    }
-
-    // Helper function to get a random number in a range
-    fn rand_range(&self, min: usize, max: usize) -> usize {
-        min + (self.time.now() as usize % (max - min))
     }
     
     /// Reset the NAR to initial state
@@ -202,6 +204,11 @@ impl NAR {
             None
         }
     }
+
+    /// Get a belief by its term
+    pub fn get_belief(&mut self, term: &Term) -> Option<Task> {
+        self.memory.get_concept_mut(term).and_then(|c| c.beliefs().highest_priority().cloned())
+    }
 }
 
 #[cfg(test)]
@@ -215,7 +222,7 @@ mod tests {
     fn test_nar_creation() {
         let time = Time::new();
         let concept_builder = ConceptBuilder::new();
-        let mut nar = NAR::new(time, concept_builder);
+        let nar = NAR::new(time, concept_builder);
         
         assert_eq!(nar.running, false);
     }

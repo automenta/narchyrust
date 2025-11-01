@@ -2,7 +2,7 @@
 //!
 //! This module provides utilities for concept management in NARS.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use crate::time::Time;
 use crate::concept::TaskConcept;
 use crate::term::Term;
@@ -79,7 +79,7 @@ pub struct ConceptBuilder {
     time: Option<Arc<Time>>,
     
     /// Whether concepts should be built with task support
-    task_concept_only: bool,
+    _task_concept_only: bool,
 }
 
 impl ConceptBuilder {
@@ -88,7 +88,7 @@ impl ConceptBuilder {
         ConceptBuilder {
             emotion: None,
             time: None,
-            task_concept_only: true,
+            _task_concept_only: true,
         }
     }
     

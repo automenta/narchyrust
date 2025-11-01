@@ -22,7 +22,7 @@ pub use term::Term;
 pub use truth::Truth;
 pub use task::Task;
 pub use concept::{Concept, TaskConcept};
-pub use nal::NAR;
+pub use nal::nar::NAR;
 
 #[cfg(test)]
 mod tests {

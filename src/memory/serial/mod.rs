@@ -3,7 +3,7 @@
 //! This is a new single-threaded implementation of the memory system.
 
 use crate::concept::TaskConcept;
-use crate::term::{Term, TermTrait};
+use crate::term::Term;
 use std::collections::HashMap;
 use std::fmt;
 

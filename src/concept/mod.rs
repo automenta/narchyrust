@@ -12,7 +12,6 @@ use crate::term::Term;
 use crate::task::{Task, Punctuation};
 use crate::table::TaskTable;
 use crate::bag::BagItem;
-use std::collections::HashMap;
 use std::fmt;
 
 pub use util::{Emotion, ConceptBuilder};

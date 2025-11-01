@@ -2,8 +2,10 @@
 //!
 //! This module handles focus of attention in the NARS system.
 
-pub mod util;
+pub mod focus;
+pub mod focus_bag;
 pub mod pri_tree;
 
-pub use util::FocusBag;
+pub use focus::Focus;
+pub use focus_bag::FocusBag;
 pub use pri_tree::PriTree;

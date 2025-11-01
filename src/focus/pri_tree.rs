@@ -2,50 +2,81 @@
 //!
 //! This module implements a priority tree for managing priorities in NARS.
 
+use petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::HashMap;
+use crate::term::Term;
+use petgraph::visit::Bfs;
+
+/// A node in the priority tree
+#[derive(Debug, Clone, PartialEq)]
+pub struct PriNode {
+    /// The term associated with this node
+    pub term: Term,
+    /// The priority of this node
+    pub priority: f32,
+}
+
+impl Eq for PriNode {}
+
+impl std::hash::Hash for PriNode {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.term.hash(state);
+    }
+}
 
 /// Priority tree for managing priorities
 pub struct PriTree {
-    /// Internal map of priorities
-    priorities: HashMap<String, f32>,
+    /// The graph representing the priority tree
+    graph: DiGraph<PriNode, ()>,
     
-    /// Default priority
-    default_priority: f32,
+    /// A map from the node to its index in the graph
+    node_map: HashMap<Term, NodeIndex>,
 }
 
 impl PriTree {
     /// Create a new priority tree
     pub fn new() -> Self {
         PriTree {
-            priorities: HashMap::new(),
-            default_priority: 0.5,
+            graph: DiGraph::new(),
+            node_map: HashMap::new(),
         }
     }
-    
-    /// Set a priority for a key
-    pub fn set_priority(&mut self, key: &str, priority: f32) {
-        self.priorities.insert(key.to_string(), priority);
+
+    /// Add a node to the tree
+    pub fn add_node(&mut self, node: PriNode) -> NodeIndex {
+        if let Some(&index) = self.node_map.get(&node.term) {
+            index
+        } else {
+            let index = self.graph.add_node(node.clone());
+            self.node_map.insert(node.term.clone(), index);
+            index
+        }
     }
-    
-    /// Get the priority for a key
-    pub fn get_priority(&self, key: &str) -> f32 {
-        *self.priorities.get(key).unwrap_or(&self.default_priority)
+
+    /// Add an edge to the tree
+    pub fn add_edge(&mut self, source: PriNode, target: PriNode) {
+        let source_index = self.add_node(source);
+        let target_index = self.add_node(target);
+        self.graph.add_edge(source_index, target_index, ());
     }
     
     /// Commit priority changes
     pub fn commit(&mut self) {
-        // Apply any priority changes or updates
-        // In a real implementation, this would update the tree structure
+        if self.graph.node_count() == 0 {
+            return;
+        }
+        // Create a breadth-first search starting from the first node
+        let mut bfs = Bfs::new(&self.graph, *self.node_map.values().next().unwrap());
+        while let Some(nx) = bfs.next(&self.graph) {
+            // Placeholder for priority update logic
+            let _node = &self.graph[nx];
+        }
     }
     
-    /// Get all priorities
-    pub fn priorities(&self) -> &HashMap<String, f32> {
-        &self.priorities
-    }
-    
-    /// Clear all priorities
+    /// Clear the tree
     pub fn clear(&mut self) {
-        self.priorities.clear();
+        self.graph.clear();
+        self.node_map.clear();
     }
 }
 
@@ -58,44 +89,44 @@ impl Default for PriTree {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::term::atom::Atomic;
 
     #[test]
     fn test_pri_tree_creation() {
         let pri_tree = PriTree::new();
-        assert_eq!(pri_tree.priorities().len(), 0);
-        assert_eq!(pri_tree.get_priority("test"), 0.5);
+        assert_eq!(pri_tree.graph.node_count(), 0);
     }
 
     #[test]
-    fn test_set_and_get_priority() {
+    fn test_add_node() {
         let mut pri_tree = PriTree::new();
-        
-        pri_tree.set_priority("test", 0.8);
-        assert_eq!(pri_tree.get_priority("test"), 0.8);
-        
-        // Non-existent key should return default
-        assert_eq!(pri_tree.get_priority("nonexistent"), 0.5);
+        let term = Term::Atomic(Atomic::new_atom("test"));
+        let node = PriNode { term, priority: 0.5 };
+        pri_tree.add_node(node);
+        assert_eq!(pri_tree.graph.node_count(), 1);
     }
 
     #[test]
-    fn test_commit() {
+    fn test_add_edge() {
         let mut pri_tree = PriTree::new();
-        pri_tree.set_priority("test", 0.8);
-        
-        // Commit should not panic
-        pri_tree.commit();
-        
-        assert_eq!(pri_tree.get_priority("test"), 0.8);
+        let term1 = Term::Atomic(Atomic::new_atom("test1"));
+        let node1 = PriNode { term: term1, priority: 0.5 };
+        let term2 = Term::Atomic(Atomic::new_atom("test2"));
+        let node2 = PriNode { term: term2, priority: 0.5 };
+        pri_tree.add_edge(node1, node2);
+        assert_eq!(pri_tree.graph.edge_count(), 1);
     }
 
     #[test]
     fn test_clear() {
         let mut pri_tree = PriTree::new();
-        pri_tree.set_priority("test", 0.8);
-        assert_eq!(pri_tree.priorities().len(), 1);
-        
+        let term1 = Term::Atomic(Atomic::new_atom("test1"));
+        let node1 = PriNode { term: term1, priority: 0.5 };
+        let term2 = Term::Atomic(Atomic::new_atom("test2"));
+        let node2 = PriNode { term: term2, priority: 0.5 };
+        pri_tree.add_edge(node1, node2);
         pri_tree.clear();
-        assert_eq!(pri_tree.priorities().len(), 0);
-        assert_eq!(pri_tree.get_priority("test"), 0.5); // Default value after clear
+        assert_eq!(pri_tree.graph.node_count(), 0);
+        assert_eq!(pri_tree.graph.edge_count(), 0);
     }
 }
