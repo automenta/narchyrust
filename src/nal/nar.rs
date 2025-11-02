@@ -10,10 +10,10 @@ use crate::term::Term;
 use crate::concept::util::ConceptBuilder;
 use crate::time::Time;
 use crate::truth::Truth;
-use crate::task::TaskBuilder;
 use crate::focus::FocusBag;
 use crate::focus::PriTree;
-use crate::nal::deriver::Deriver;
+use crate::deriver::Deriver;
+use crate::deriver::rule_based::RuleDeriver;
 use std::sync::Arc;
 
 /// Non-Axiomatic Reasoner (NAR) - The main reasoning system
@@ -34,7 +34,7 @@ pub struct NAR {
     pub pri_tree: PriTree,
 
     /// The deriver
-    pub deriver: Deriver,
+    pub deriver: Box<dyn Deriver>,
 
     /// Self identifier term
     _self_term: Term,
@@ -53,7 +53,7 @@ impl NAR {
             time: time_ref.clone(),
             focus_bag: FocusBag::new(100), // TODO: make capacity configurable
             pri_tree: PriTree::new(),
-            deriver: Deriver::new(),
+            deriver: Box::new(RuleDeriver::new()),
             _self_term: Term::Atomic(crate::term::atom::Atomic::new_atom("self")),
             running: false,
         };
@@ -67,9 +67,6 @@ impl NAR {
     
     /// Input a task into the system
     pub fn input(&mut self, task: Task) {
-        // Add the task as a premise to the deriver
-        self.deriver.add_premise(crate::nal::deriver::Premise { task: task.clone() });
-
         // For now, add the task to memory by creating or updating its concept
         let term = task.term().clone();
         if let Some(mut concept) = self.conceptualize(&term) {
@@ -86,19 +83,11 @@ impl NAR {
     
     /// Input a string as a task
     pub fn input_string(&mut self, input: &str) -> Result<Vec<crate::task::Task>, String> {
-        let (term, truth, punctuation, time) = crate::parser::Parser::parse_sentence(input).map_err(|e| e.to_string())?;
-
-        let task = TaskBuilder::new()
-            .term(term)
-            .truth(truth.unwrap_or_default())
-            .punctuation(punctuation)
-            .time(time.unwrap_or(crate::task::Time::Eternal))
-            .build()
-            .map_err(|e| e.to_string())?;
-
-        self.input(task.clone());
-
-        Ok(vec![task])
+        let tasks = crate::parser::parse_narsese(input).map_err(|e| e.to_string())?;
+        for task in &tasks {
+            self.input(task.clone());
+        }
+        Ok(tasks)
     }
     
     /// Get or create a concept
@@ -145,7 +134,7 @@ impl NAR {
         self.focus_bag.commit();
 
         // 2. Perform inference
-        let derived_tasks = self.deriver.step();
+        let derived_tasks = self.deriver.derive(&self.memory, &mut self.focus_bag, &mut self.pri_tree);
         for task in derived_tasks {
             self.input(task);
         }

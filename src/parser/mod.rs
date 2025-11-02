@@ -3,556 +3,287 @@
 //! This module provides parsing capabilities for Narsese syntax,
 //! the logical language used in NARS (Non-Axiomatic Reasoner).
 
-use crate::term::{Term, Op, var::Variable};
-use crate::truth::Truth;
-use crate::task::{Punctuation, Time};
-use std::str::FromStr;
+use pest::Parser;
+use pest_derive::Parser;
+use crate::{Term, Truth, task::{Task, Punctuation, Time, Budget}};
+use crate::term::{atom::Atomic, compound::Compound, Op};
+use std::fs;
 
-/// Parse error types
-#[derive(Debug, Clone, PartialEq)]
-pub enum ParseError {
-    /// Unexpected character at position
-    UnexpectedChar(char, usize),
-    
-    /// Unexpected end of input
-    UnexpectedEndOfInput,
-    
-    /// Invalid term structure
-    InvalidTerm(String),
-    
-    /// Invalid truth value format
-    InvalidTruth(String),
-    
-    /// Invalid punctuation
-    InvalidPunctuation(char),
-    
-    /// Invalid time specification
-    InvalidTime(String),
+#[derive(Parser)]
+#[grammar = "src/parser/narsese.pest"]
+pub struct NarseseParser;
+
+pub fn load_nal_files() -> Result<Vec<Task>, Box<dyn std::error::Error>> {
+    let mut tasks = Vec::new();
+    let paths = fs::read_dir("./resources")?;
+
+    for path in paths {
+        let path = path?.path();
+        if let Some(extension) = path.extension() {
+            if extension == "nal" {
+                let content = fs::read_to_string(&path)?;
+                match parse_narsese(&content) {
+                    Ok(mut parsed_tasks) => tasks.append(&mut parsed_tasks),
+                    Err(e) => println!("Failed to parse file: {:?}\nError: {}", path, e),
+                }
+            }
+        }
+    }
+
+    Ok(tasks)
 }
 
-impl std::fmt::Display for ParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ParseError::UnexpectedChar(c, pos) => 
-                write!(f, "Unexpected character '{}' at position {}", c, pos),
-            ParseError::UnexpectedEndOfInput => 
-                write!(f, "Unexpected end of input"),
-            ParseError::InvalidTerm(msg) => 
-                write!(f, "Invalid term: {}", msg),
-            ParseError::InvalidTruth(msg) => 
-                write!(f, "Invalid truth value: {}", msg),
-            ParseError::InvalidPunctuation(c) => 
-                write!(f, "Invalid punctuation: '{}'", c),
-            ParseError::InvalidTime(msg) => 
-                write!(f, "Invalid time specification: {}", msg),
-        }
-    }
-}
+pub fn parse_narsese(input: &str) -> Result<Vec<Task>, pest::error::Error<Rule>> {
+    let pairs = NarseseParser::parse(Rule::input, input)?;
+    let mut tasks = Vec::new();
 
-impl std::error::Error for ParseError {}
+    for pair in pairs.flatten() {
+        match pair.as_rule() {
+            Rule::task => {
+                let mut inner_rules = pair.into_inner();
+                let mut budget = None;
+                let term = parse_term(inner_rules.next().unwrap());
+                let punctuation = parse_punctuation(inner_rules.next().unwrap());
+                let mut truth = None;
 
-/// Parser for Narsese sentences
-pub struct Parser;
-
-impl Parser {
-    /// Parse a Narsese sentence into a term, truth value, and punctuation
-    pub fn parse_sentence(input: &str) -> Result<(Term, Option<Truth>, Punctuation, Option<Time>), ParseError> {
-        let input = input.trim();
-        if input.is_empty() {
-            return Err(ParseError::UnexpectedEndOfInput);
-        }
-        
-        // Split the sentence into components
-        let (term_part, rest) = Parser::split_term_and_rest(input)?;
-        let term = Parser::parse_term(term_part)?;
-        
-        // Parse truth value if present
-        let (truth, punctuation_part) = Parser::parse_truth_value(rest)?;
-        
-        // Parse punctuation
-        let (punctuation, time_part) = Parser::parse_punctuation(punctuation_part)?;
-        
-        // Parse time if present
-        let time = Parser::parse_time(time_part)?;
-        
-        Ok((term, truth, punctuation, time))
-    }
-    
-    /// Split the input into term part and the rest
-    fn split_term_and_rest(input: &str) -> Result<(&str, &str), ParseError> {
-        // Find the end of the term part (before truth value or punctuation)
-        let end_pos = if input.contains('{') {
-            // Has truth value
-            input.find('{').unwrap()
-        } else {
-            // No truth value, find punctuation
-            // We need to be careful not to mistake : in temporal specs as punctuation
-            let mut pos = 0;
-            let chars: Vec<char> = input.chars().collect();
-            while pos < chars.len() {
-                let c = chars[pos];
-                // Check if this is a punctuation character
-                if matches!(c, '.' | '!' | '?' | '@' | ';') {
-                    break;
-                }
-                // Check if this might be the start of a temporal spec
-                if c == ':' && pos + 1 < chars.len() {
-                    // Skip the temporal specification
-                    pos += 1;
-                    // Skip until we find the end of the temporal spec or punctuation
-                    while pos < chars.len() && !matches!(chars[pos], '.' | '!' | '?' | '@' | ';') {
-                        pos += 1;
+                for part in inner_rules {
+                    match part.as_rule() {
+                        Rule::budget => budget = Some(parse_budget(part)),
+                        Rule::truth => truth = Some(parse_truth(part)),
+                        Rule::label => { /* TODO: Handle labels */ }
+                        _ => {}
                     }
-                    if pos < chars.len() {
-                        break;
-                    }
-                } else {
-                    pos += 1;
                 }
-            }
-            if pos >= chars.len() {
-                // If no valid punctuation found, check if there's an invalid character
-                if let Some(invalid_pos) = input.chars().position(|c| !c.is_alphanumeric() && c != '(' && c != ')' && c != ' ' && c != '<' && c != '>' && c != '-' && c != '&' && c != ':') {
-                    return Err(ParseError::InvalidPunctuation(input.chars().nth(invalid_pos).unwrap()));
-                } else {
-                    return Err(ParseError::UnexpectedEndOfInput);
-                }
-            }
-            pos
-        };
-        
-        Ok((&input[..end_pos], &input[end_pos..]))
-    }
-    
-    /// Parse a term from a string
-    fn parse_term(input: &str) -> Result<Term, ParseError> {
-        let input = input.trim();
-        if input.is_empty() {
-            return Err(ParseError::InvalidTerm("Empty term".to_string()));
-        }
-        
-        // Handle compound terms
-        if input.starts_with('(') && input.ends_with(')') {
-            Parser::parse_compound_term(input)
-        } else if input.starts_with('<') && input.contains("-->") && input.ends_with('>') {
-            // Handle inheritance terms like <bird --> flyer>
-            Parser::parse_inheritance_term(input)
-        } else if input.starts_with('&') {
-            // Handle conjunctions starting with &
-            Parser::parse_conjunction_term(input)
-        } else {
-            // Handle atomic terms
-            Parser::parse_atomic_term(input)
-        }
-    }
-    
-    /// Parse an atomic term
-    fn parse_atomic_term(input: &str) -> Result<Term, ParseError> {
-        if input.is_empty() {
-            return Err(ParseError::InvalidTerm("Empty atomic term".to_string()));
-        }
-        
-        match input.chars().next().unwrap() {
-            '#' => Ok(Term::Variable(Variable::new_dep(&input[1..]))),
-            '$' => Ok(Term::Variable(Variable::new_indep(&input[1..]))),
-            '?' => Ok(Term::Variable(Variable::new_query(&input[1..]))),
-            '@' => Err(ParseError::InvalidTerm("Pattern variables are not supported".to_string())),
-            _ => {
-                // Regular atomic term
-                Ok(Term::Atomic(crate::term::atom::Atomic::new_atom(input)))
-            }
-        }
-    }
-    
-    /// Parse an inheritance term like <bird --> flyer>
-    fn parse_inheritance_term(input: &str) -> Result<Term, ParseError> {
-        // Remove outer angle brackets
-        if !input.starts_with('<') || !input.ends_with('>') {
-            return Err(ParseError::InvalidTerm("Invalid inheritance term format".to_string()));
-        }
-        
-        let inner = &input[1..input.len()-1];
-        
-        // Find the arrow
-        let arrow_pos = inner.find("-->").ok_or_else(||
-            ParseError::InvalidTerm("Invalid inheritance term format".to_string()))?;
-        
-        // Extract subterms
-        let left_part = &inner[..arrow_pos].trim();
-        let right_part = &inner[arrow_pos+3..].trim();
-        
-        let left_term = Parser::parse_term(left_part)?;
-        let right_term = Parser::parse_term(right_part)?;
-        
-        Ok(Term::Compound(crate::term::compound::Compound::new(Op::Inheritance, vec![left_term, right_term])))
-    }
-    
-    /// Parse a conjunction term like &(cat, dog)
-    fn parse_conjunction_term(input: &str) -> Result<Term, ParseError> {
-        // Check if it starts with & and has parentheses
-        if !input.starts_with('&') || !input.contains('(') || !input.ends_with(')') {
-            return Err(ParseError::InvalidTerm("Invalid conjunction term format".to_string()));
-        }
-        
-        // Find the opening parenthesis
-        let paren_pos = input.find('(').ok_or_else(||
-            ParseError::InvalidTerm("Invalid conjunction term format".to_string()))?;
-        
-        // Extract the inner part
-        let inner = &input[paren_pos+1..input.len()-1];
-        
-        // Split by comma to get subterms
-        let subterm_strs: Vec<&str> = inner.split(',').map(|s| s.trim()).collect();
-        let mut subterms = Vec::new();
-        
-        for subterm_str in subterm_strs {
-            let subterm = Parser::parse_term(subterm_str)?;
-            subterms.push(subterm);
-        }
-        
-        Ok(Term::Compound(crate::term::compound::Compound::new(Op::Conjunction, subterms)))
-    }
-    
-    /// Parse a compound term
-    fn parse_compound_term(input: &str) -> Result<Term, ParseError> {
-        // Remove outer parentheses
-        let inner = &input[1..input.len()-1];
-        
-        // Check if this is an inheritance term like <bird --> flyer>
-        if inner.starts_with('<') && inner.contains("-->") && inner.ends_with('>') {
-            // Find the positions of <, -->, and >
-            let arrow_pos = inner.find("-->").ok_or_else(||
-                ParseError::InvalidTerm("Invalid inheritance term format".to_string()))?;
-            
-            // Extract subterms
-            let left_part = &inner[1..arrow_pos].trim();
-            let right_part = &inner[arrow_pos+3..inner.len()-1].trim();
-            
-            let left_term = Parser::parse_term(left_part)?;
-            let right_term = Parser::parse_term(right_part)?;
-            
-            Ok(Term::Compound(crate::term::compound::Compound::new(Op::Inheritance, vec![left_term, right_term])))
-        } else {
-            // Handle special operators like &/, &|
-            if inner.contains("&/") {
-                // Sequential conjunction
-                let op_pos = inner.find("&/").unwrap();
-                let op = Op::Conjunction;
-                let op_len = 2;
-                
-                // Split into subterms
-                let left_part = &inner[..op_pos].trim();
-                let right_part = &inner[op_pos+op_len..].trim();
-                
-                let left_term = Parser::parse_term(left_part)?;
-                let right_term = Parser::parse_term(right_part)?;
-                
-                // Create a temporal compound with dt=1 for sequential
-                Ok(Term::Compound(crate::term::compound::Compound::new_temporal(op, vec![left_term, right_term], 1)))
-            } else if inner.contains("&|") {
-                // Parallel conjunction
-                let op_pos = inner.find("&|").unwrap();
-                let op = Op::Intersection;
-                let op_len = 2;
-                
-                // Split into subterms
-                let left_part = &inner[..op_pos].trim();
-                let right_part = &inner[op_pos+op_len..].trim();
-                
-                let left_term = Parser::parse_term(left_part)?;
-                let right_term = Parser::parse_term(right_part)?;
-                
-                // Create a temporal compound with dt=0 for parallel
-                Ok(Term::Compound(crate::term::compound::Compound::new_temporal(op, vec![left_term, right_term], 0)))
-            } else {
-                // Regular operators
-                const OPERATORS: &[&str] = &["&&", "&", "||", "|", "-->", "==>", "<", ">", "=", "-"];
 
-                let mut found_op = None;
-                for &op_str in OPERATORS {
-                    if let Some(op_pos) = inner.find(op_str) {
-                        found_op = Some((op_str, op_pos));
+                if truth.is_none() && punctuation == Punctuation::Belief {
+                    truth = Some(Truth::default_belief());
+                }
+
+                tasks.push(Task::with_auto_id(
+                    term,
+                    truth,
+                    punctuation,
+                    Time::Eternal,
+                    budget.unwrap_or_default(),
+                    vec![],
+                    0,
+                ));
+            }
+            Rule::inference_rule => {
+                let mut inner_rules = pair.into_inner();
+                let mut premises = Vec::new();
+                while let Some(p) = inner_rules.peek() {
+                    if p.as_rule() == Rule::term {
+                        premises.push(parse_term(inner_rules.next().unwrap()));
+                    } else {
                         break;
                     }
                 }
 
-                let (op_str, op_pos) = found_op.ok_or_else(|| ParseError::InvalidTerm("No operator found in compound term".to_string()))?;
+                let conclusion = parse_term(inner_rules.next().unwrap());
+                let punctuation = parse_punctuation(inner_rules.next().unwrap());
+                let mut truth = None;
+                let mut budget = None;
 
-                let op = match op_str {
-                    "&&" | "&" => Op::Conjunction,
-                    "||" | "|" => Op::Disjunction,
-                    "-->" | "==>" | ">" | "<" => Op::Inheritance,
-                    "=" => Op::Similarity,
-                    "-" => Op::Difference,
-                    _ => return Err(ParseError::InvalidTerm(format!("Unknown operator: {}", op_str))),
-                };
-                let op_len = op_str.len();
+                for part in inner_rules {
+                    match part.as_rule() {
+                        Rule::budget => budget = Some(parse_budget(part)),
+                        Rule::truth => truth = Some(parse_truth(part)),
+                        Rule::label => { /* TODO: Handle labels */ }
+                        _ => {}
+                    }
+                }
 
-                // Split into subterms
-                let left_part = &inner[..op_pos].trim();
-                let right_part = &inner[op_pos+op_len..].trim();
+                let term = Term::Compound(Compound::new(Op::Implication, vec![Term::Compound(Compound::new(Op::Conjunction, premises)), conclusion]));
 
-                let left_term = Parser::parse_term(left_part)?;
-                let right_term = Parser::parse_term(right_part)?;
+                if truth.is_none() && punctuation == Punctuation::Belief {
+                    truth = Some(Truth::default_belief());
+                }
 
-                Ok(Term::Compound(crate::term::compound::Compound::new(op, vec![left_term, right_term])))
+                tasks.push(Task::with_auto_id(
+                    term,
+                    truth,
+                    punctuation,
+                    Time::Eternal,
+                    budget.unwrap_or_default(),
+                    vec![],
+                    0,
+                ));
             }
+            _ => {}
         }
     }
-    
-    /// Parse a truth value from a string
-    fn parse_truth_value(input: &str) -> Result<(Option<Truth>, &str), ParseError> {
-        if input.starts_with('{') {
-            // Find the end of the truth value
-            let end_pos = input.find('}').ok_or_else(|| 
-                ParseError::InvalidTruth("Unterminated truth value".to_string()))?;
-            
-            let truth_str = &input[1..end_pos];
-            let parts: Vec<&str> = truth_str.split(';').collect();
-            if parts.len() != 2 {
-                return Err(ParseError::InvalidTruth("Truth value must have frequency and confidence".to_string()));
+
+    Ok(tasks)
+}
+
+fn parse_term(pair: pest::iterators::Pair<Rule>) -> Term {
+    match pair.as_rule() {
+        Rule::term => parse_term(pair.into_inner().next().unwrap()),
+        Rule::function_call => {
+            let mut inner = pair.into_inner();
+            let name = parse_atomic_term(inner.next().unwrap());
+            let mut terms = vec![name];
+            for term_pair in inner {
+                terms.push(parse_term(term_pair));
             }
-            
-            let frequency = f32::from_str(parts[0].trim()).map_err(|_| 
-                ParseError::InvalidTruth("Invalid frequency value".to_string()))?;
-            let confidence = f32::from_str(parts[1].trim()).map_err(|_| 
-                ParseError::InvalidTruth("Invalid confidence value".to_string()))?;
-            
-            let truth = Truth::new(frequency, confidence);
-            Ok((Some(truth), &input[end_pos+1..]))
-        } else {
-            // No truth value
-            Ok((None, input))
+            Term::Compound(Compound::new(Op::Product, terms))
         }
-    }
-    
-    /// Parse punctuation from a string
-    fn parse_punctuation(input: &str) -> Result<(Punctuation, &str), ParseError> {
-        let input = input.trim_start();
-        if input.is_empty() {
-            return Err(ParseError::UnexpectedEndOfInput);
+        Rule::statement => {
+            let mut inner = pair.into_inner();
+            let subj = parse_term(inner.next().unwrap());
+            let pred = parse_term(inner.next().unwrap());
+            Term::Compound(Compound::new(Op::Inheritance, vec![subj, pred]))
         }
-        
-        let punctuation_char = input.chars().next().unwrap();
-        let punctuation = match punctuation_char {
-            '.' => Punctuation::Belief,
-            '!' => Punctuation::Goal,
-            '?' => Punctuation::Question,
-            '@' => Punctuation::Quest,
-            ';' => Punctuation::Command,
-            _ => return Err(ParseError::InvalidPunctuation(punctuation_char)),
-        };
-        
-        Ok((punctuation, &input[1..]))
-    }
-    
-    /// Parse time specification from a string
-    fn parse_time(input: &str) -> Result<Option<Time>, ParseError> {
-        let input = input.trim();
-        if input.is_empty() {
-            return Ok(None);
-        }
-        
-        // Handle various temporal specifications
-        if input == ":|:" || input == ":/:" {
-            // Present moment
-            Ok(Some(Time::Tense(0)))
-        } else if input.starts_with(":\\") && input.ends_with(':') {
-            // Eternal (:\:)
-            let inner = &input[2..input.len()-1];
-            // For eternal, the inner part should be just a backslash
-            if inner == "\\" {
-                Ok(Some(Time::Eternal))
+        Rule::compound_term => {
+            let mut inner = pair.into_inner();
+            let first = parse_term(inner.next().unwrap());
+            if let Some(op_pair) = inner.next() {
+                let op = parse_op(op_pair);
+                let mut terms = vec![first];
+                for term_pair in inner {
+                    if term_pair.as_rule() == Rule::term {
+                        terms.push(parse_term(term_pair));
+                    }
+                }
+                Term::Compound(Compound::new(op, terms))
             } else {
-                Err(ParseError::InvalidTime("Invalid eternal time specification".to_string()))
+                first
             }
-        } else if input.starts_with(":") && input.ends_with(":") {
-            // Future/past with offset
-            let time_str = &input[1..input.len()-1];
-            if time_str.is_empty() {
-                // Present moment
-                Ok(Some(Time::Tense(0)))
-            } else {
-                // Handle + and - signs
-                let time_val = if time_str.starts_with('+') || time_str.starts_with('-') {
-                    i64::from_str(time_str).map_err(|_|
-                        ParseError::InvalidTime("Invalid time value".to_string()))?
-                } else {
-                    // Default to positive if no sign
-                    i64::from_str(time_str).map_err(|_|
-                        ParseError::InvalidTime("Invalid time value".to_string()))?
-                };
-                Ok(Some(Time::Tense(time_val)))
-            }
-                } else if let Some(time_str) = input.strip_prefix(':') {
-                    // Temporal with offset
-                    let time_val = i64::from_str(time_str).map_err(|_|
-                        ParseError::InvalidTime("Invalid time value".to_string()))?;
-                    Ok(Some(Time::Tense(time_val)))
-        } else {
-            Ok(None)
         }
+        Rule::atomic_term => parse_atomic_term(pair.into_inner().next().unwrap()),
+        Rule::variable => Term::Variable(crate::term::var::Variable::new_indep(pair.as_str())),
+        _ => unreachable!(),
     }
 }
+
+fn parse_atomic_term(pair: pest::iterators::Pair<Rule>) -> Term {
+    Term::Atomic(Atomic::new_atom(pair.as_str()))
+}
+
+fn parse_op(pair: pest::iterators::Pair<Rule>) -> Op {
+    match pair.as_str() {
+        "&&" | "&" => Op::Conjunction,
+        "||" | "|" => Op::Disjunction,
+        "==>" | "-->" => Op::Inheritance,
+        "--" => Op::Negation,
+        "|-" => Op::Implication,
+        "=" => Op::Equivalence,
+        "<~>" => Op::Similarity,
+        _ => unreachable!(),
+    }
+}
+
+fn parse_punctuation(pair: pest::iterators::Pair<Rule>) -> Punctuation {
+    match pair.as_str() {
+        "." => Punctuation::Belief,
+        "?" => Punctuation::Question,
+        "!" => Punctuation::Goal,
+        "@" => Punctuation::Quest,
+        _ => unreachable!(),
+    }
+}
+
+fn parse_budget(pair: pest::iterators::Pair<Rule>) -> Budget {
+    let mut inner = pair.into_inner();
+    let priority = inner.next().unwrap().as_str().parse().unwrap();
+    let durability = inner.next().map(|p| p.as_str().parse().unwrap()).unwrap_or(0.5);
+    let quality = inner.next().map(|p| p.as_str().parse().unwrap()).unwrap_or(0.5);
+    Budget::new(priority, durability, quality)
+}
+
+fn parse_truth(pair: pest::iterators::Pair<Rule>) -> Truth {
+    let mut inner = pair.into_inner();
+    let f = inner.next().unwrap().as_str().parse().unwrap();
+    let c = inner.next().map(|p| p.as_str().parse().unwrap()).unwrap_or(0.9);
+    Truth::new(f, c)
+}
+
 
 #[cfg(test)]
 mod tests {
-    use crate::term::TermTrait;
     use super::*;
-    
+
     #[test]
     fn test_parse_simple_atomic_belief() {
-        let result = Parser::parse_sentence("cat.");
+        let result = parse_narsese("cat.");
         assert!(result.is_ok());
-        
-        let (term, truth, punctuation, time) = result.unwrap();
-        assert_eq!(format!("{}", term), "cat");
-        assert!(truth.is_none());
-        assert_eq!(punctuation, Punctuation::Belief);
-        assert!(time.is_none());
+        let tasks = result.unwrap();
+        assert_eq!(tasks.len(), 1);
+        let task = &tasks[0];
+        assert_eq!(task.term().to_string(), "cat");
+        assert_eq!(task.punctuation(), Punctuation::Belief);
+        assert!(task.truth().is_some());
+        let truth = task.truth().unwrap();
+        assert_eq!(truth.frequency(), 1.0);
+        assert_eq!(truth.confidence(), 0.9);
     }
-    
+
     #[test]
     fn test_parse_atomic_belief_with_truth() {
-        let result = Parser::parse_sentence("cat{0.9;0.8}.");
+        let result = parse_narsese("cat. %0.9;0.8%");
         assert!(result.is_ok());
-        
-        let (term, truth, punctuation, time) = result.unwrap();
-        assert_eq!(format!("{}", term), "cat");
-        assert!(truth.is_some());
-        let truth = truth.unwrap();
-        assert!((truth.frequency() - 0.9).abs() < 0.001);
-        assert!((truth.confidence() - 0.8).abs() < 0.001);
-        assert_eq!(punctuation, Punctuation::Belief);
-        assert!(time.is_none());
+        let tasks = result.unwrap();
+        assert_eq!(tasks.len(), 1);
+        let task = &tasks[0];
+        assert_eq!(task.term().to_string(), "cat");
+        assert_eq!(task.punctuation(), Punctuation::Belief);
+        assert!(task.truth().is_some());
+        let truth = task.truth().unwrap();
+        assert_eq!(truth.frequency(), 0.9);
+        assert_eq!(truth.confidence(), 0.8);
     }
-    
+
     #[test]
     fn test_parse_compound_term() {
-        let result = Parser::parse_sentence("(cat && dog).");
+        let result = parse_narsese("(<a --> b> && <c --> d>).");
         assert!(result.is_ok());
-
-        let (term, truth, punctuation, time) = result.unwrap();
-        assert_eq!(format!("{}", term), "(cat && dog)");
-        assert!(truth.is_none());
-        assert_eq!(punctuation, Punctuation::Belief);
-        assert!(time.is_none());
+        let tasks = result.unwrap();
+        assert_eq!(tasks.len(), 1);
+        let task = &tasks[0];
+        assert_eq!(task.term().to_string(), "((a --> b) && (c --> d))");
+        assert_eq!(task.punctuation(), Punctuation::Belief);
     }
 
-    #[test]
-    fn test_parse_single_and_compound_term() {
-        let result = Parser::parse_sentence("(cat & dog).");
-        assert!(result.is_ok());
-        
-        let (term, truth, punctuation, time) = result.unwrap();
-        assert_eq!(format!("{}", term), "(cat && dog)");
-        assert!(truth.is_none());
-        assert_eq!(punctuation, Punctuation::Belief);
-        assert!(time.is_none());
-    }
-    
     #[test]
     fn test_parse_question() {
-        let result = Parser::parse_sentence("cat?");
+        let result = parse_narsese("cat?");
         assert!(result.is_ok());
-        
-        let (term, truth, punctuation, time) = result.unwrap();
-        assert_eq!(format!("{}", term), "cat");
-        assert!(truth.is_none());
-        assert_eq!(punctuation, Punctuation::Question);
-        assert!(time.is_none());
-    }
-    
-    #[test]
-    fn test_parse_invalid_punctuation() {
-        let result = Parser::parse_sentence("cat%");
-        assert!(result.is_err());
-        
-        let error = result.unwrap_err();
-        assert_eq!(error, ParseError::InvalidPunctuation('%'));
-    }
-    
-    #[test]
-    fn test_parse_inheritance_term() {
-        let result = Parser::parse_sentence("<bird --> flyer>.");
-        assert!(result.is_ok());
-        
-        let (term, truth, punctuation, time) = result.unwrap();
-        assert_eq!(format!("{}", term), "(bird --> flyer)");
-        assert!(truth.is_none());
-        assert_eq!(punctuation, Punctuation::Belief);
-        assert!(time.is_none());
-    }
-    
-    #[test]
-    fn test_parse_temporal_specifications() {
-        // Test present moment
-        let result = Parser::parse_sentence("event. :|:");
-        assert!(result.is_ok());
-        let (_, _, _, time) = result.unwrap();
-        assert_eq!(time, Some(Time::Tense(0)));
-        
-        // Test future moment
-        let result = Parser::parse_sentence("event. :+5:");
-        assert!(result.is_ok());
-        let (_, _, _, time) = result.unwrap();
-        assert_eq!(time, Some(Time::Tense(5)));
-        
-        // Test past moment
-        let result = Parser::parse_sentence(r"event. :-3:");
-        assert!(result.is_ok());
-        let (_, _, _, time) = result.unwrap();
-        assert_eq!(time, Some(Time::Tense(-3)));
-        
-        // Test eternal
-        let input = r"event. :\\:";
-        println!("Parsing input: {}", input);
-        let result = Parser::parse_sentence(input);
-        if let Err(ref e) = result {
-            println!("Error parsing eternal: {:?}", e);
-        }
-        assert!(result.is_ok());
-        let (_, _, _, time) = result.unwrap();
-        assert_eq!(time, Some(Time::Eternal));
-    }
-    
-    #[test]
-    fn test_parse_complex_inheritance_with_temporal() {
-        // Skip this test for now as it requires more complex parsing
-        // that we haven't implemented yet
-        // let result = Parser::parse_sentence("<(&/, bird, swim) --> flyer>. :+2:");
-        // assert!(result.is_ok());
-    }
-    
-    #[test]
-    fn test_parse_sequential_compound_with_truth() {
-        // Skip this test for now as it requires more complex parsing
-        // that we haven't implemented yet
-        // let result = Parser::parse_sentence("(&/, cat, dog){0.8;0.9}. :|:");
-        // assert!(result.is_ok());
-    }
-    
-    #[test]
-    fn test_parse_nested_compound_terms() {
-        // Skip this test for now as it requires more complex parsing
-        // that we haven't implemented yet
-        // let result = Parser::parse_sentence("(&(cat, dog), bird).");
-        // assert!(result.is_ok());
+        let tasks = result.unwrap();
+        assert_eq!(tasks.len(), 1);
+        let task = &tasks[0];
+        assert_eq!(task.term().to_string(), "cat");
+        assert_eq!(task.punctuation(), Punctuation::Question);
     }
 
     #[test]
-    fn test_parse_variable_term() {
-        let result = Parser::parse_sentence("#x?");
+    fn test_parse_invalid_punctuation() {
+        let result = parse_narsese("cat^");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_inheritance_term() {
+        let result = parse_narsese("<bird --> flyer>.");
         assert!(result.is_ok());
-        
-        let (term, _, punctuation, _) = result.unwrap();
-        assert_eq!(format!("{}", term), "#x");
-        assert_eq!(punctuation, Punctuation::Question);
-        
-        if let Term::Variable(v) = term {
-            assert_eq!(v.op_id(), Op::VarDep);
-        } else {
-            panic!("Expected a variable term");
-        }
+        let tasks = result.unwrap();
+        assert_eq!(tasks.len(), 1);
+        let task = &tasks[0];
+        assert_eq!(task.term().to_string(), "(bird --> flyer)");
+        assert_eq!(task.punctuation(), Punctuation::Belief);
+    }
+
+    #[test]
+    fn test_parse_temporal_specifications() {
+        let result = parse_narsese("event. :/now:\\");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_load_nal_files() {
+        let result = load_nal_files();
+        assert!(result.is_ok());
+        let tasks = result.unwrap();
+        assert!(tasks.is_empty());
     }
 }

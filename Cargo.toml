@@ -34,6 +34,8 @@ lru = "0.12.3"
 # For efficient string operations
 smartstring = "1.0"
 petgraph = "0.6"
+pest = "2.7.7"
+pest_derive = "2.7.7"
 
 [dev-dependencies]
 criterion = "0.5"

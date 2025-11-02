@@ -8,4 +8,3 @@
 
 pub mod nar;
 pub mod inference;
-pub mod deriver;

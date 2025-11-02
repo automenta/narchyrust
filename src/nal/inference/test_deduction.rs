@@ -3,7 +3,6 @@
 use crate::nal::nar::NAR;
 use crate::time::Time;
 use crate::concept::util::ConceptBuilder;
-use crate::parser::Parser;
 
 #[test]
 fn test_deduction() {
@@ -21,7 +20,9 @@ fn test_deduction() {
     }
 
     // Check for derived belief
-    let (derived_term, _, _, _) = Parser::parse_sentence("<robin --> animal>.").unwrap();
+    let tasks = crate::parser::parse_narsese("<robin --> animal>.").unwrap();
+    assert_eq!(tasks.len(), 1);
+    let derived_term = tasks[0].term().clone();
     let belief = nar.get_belief(&derived_term);
     assert!(belief.is_some());
 }

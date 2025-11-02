@@ -58,6 +58,7 @@ pub enum Op {
     
     // Compound operators
     Neg,
+    Negation,
     Conjunction,
     Disjunction,
     Intersection,
@@ -88,6 +89,7 @@ impl fmt::Display for Op {
             Op::VarIndep => write!(f, "$"),
             Op::VarQuery => write!(f, "?"),
             Op::Neg => write!(f, "--"),
+            Op::Negation => write!(f, "--"),
             Op::Conjunction => write!(f, "&&"),
             Op::Disjunction => write!(f, "||"),
             Op::Intersection => write!(f, "|"),

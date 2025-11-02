@@ -1,0 +1,48 @@
+WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
+
+input = { SOI ~ (WHITESPACE* ~ (line_comment | block_comment | rule_block | task | inference_rule | term_command_task))* ~ EOI }
+
+rule_block = { atom ~ "{" ~ (WHITESPACE* ~ (line_comment | block_comment | inference_rule))* ~ "}" }
+inference_rule = { term? ~ ("," ~ WHITESPACE* ~ term)* ~ WHITESPACE* ~ "|-" ~ WHITESPACE* ~ term ~ WHITESPACE* ~ punctuation ~ occurrence? ~ truth? ~ label? }
+
+line_comment = { "//" ~ (!("\n") ~ ANY)* }
+block_comment = { "/*" ~ (block_comment | !"*/" ~ ANY)* ~ "*/" }
+
+term_command_task = { term ~ EOI }
+
+task = { budget? ~ term ~ punctuation ~ occurrence? ~ truth? ~ label? }
+
+budget = { "$" ~ short_float ~ "$"? }
+
+truth = { "%" ~ short_float ~ (";" ~ short_float ~ "%"?)? }
+
+short_float = @{ ("1.000" | "1.00" | "1.0" | "1") | ("." | "0.") ~ ASCII_DIGIT+ | "0" }
+
+punctuation = @{ "." | "?" | "!" | "@" | ";" }
+
+occurrence = { ":/" ~ occurrence_time ~ ( ".." ~ occurrence_time )? ~ ":\\" }
+occurrence_time = { ("now" | "|" | ":|:") | time_unit | ("-" | "+")? ~ ASCII_DIGIT+ }
+time_unit = { ("-" | "+")? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT*)? ~ ASCII_ALPHA+ }
+
+term = { statement | compound_term | atomic_term | variable | function_call | prefixed_function_call | prefixed_atomic_term | atom }
+
+prefixed_function_call = { "--" ~ function_call }
+prefixed_atomic_term = { "--" ~ atomic_term }
+
+statement = { "<" ~ term ~ "-->" ~ term ~ ">" }
+
+compound_term = { "(" ~ term ~ (WHITESPACE* ~ op? ~ WHITESPACE* ~ term)* ~ ")" | "{" ~ term ~ ("," ~ term)* ~ "}" | "(" ~ term ~ ")" }
+op = @{ "&&" | "&" | "||" | "|" | "==>" | "<=>" | "-->" | "<->" | "->" | "<-" | "--" | "|-" | "=" | "<~>" }
+
+atomic_term = { atom | uri_atom | number_atom | atom_quoted }
+
+function_call = { atom ~ "(" ~ (term ~ ("," ~ term)*)? ~ ")" }
+
+label = { "(" ~ (atom ~ ":" ~ atom) ~ ")" }
+
+atom = @{ (ASCII_ALPHANUMERIC | "_")+ }
+uri_atom = @{ "<" ~ (!">" ~ ANY)+ ~ ">" }
+number_atom = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
+atom_quoted = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+
+variable = @{ ("$" | "#" | "?") ~ (ASCII_ALPHANUMERIC | "_")+ }
