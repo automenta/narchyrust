@@ -93,6 +93,11 @@ impl Budget {
     pub fn quality(&self) -> f32 {
         self.quality
     }
+
+    /// Set the priority
+    pub fn set_priority(&mut self, priority: f32) {
+        self.priority = priority.clamp(0.0, 1.0);
+    }
     
     /// Calculate the budget value
     pub fn value(&self) -> f32 {
@@ -198,6 +203,11 @@ impl Task {
     /// Get the budget
     pub fn budget(&self) -> &Budget {
         &self.budget
+    }
+
+    /// Get a mutable reference to the budget
+    pub fn budget_mut(&mut self) -> &mut Budget {
+        &mut self.budget
     }
     
     /// Get the task ID

@@ -3,6 +3,11 @@
 //! This module implements the core NAR (Non-Axiomatic Reasoner) class based on the Java implementation.
 //! The NAR manages the reasoning cycle, memory operations, and I/O channels.
 
+//! Non-Axiomatic Reasoner (NAR) implementation
+//!
+//! This module implements the core NAR (Non-Axiomatic Reasoner) class based on the Java implementation.
+//! The NAR manages the reasoning cycle, memory operations, and I/O channels.
+
 use crate::memory::simple::SimpleMemory as Memory;
 use crate::concept::TaskConcept;
 use crate::task::Task;
@@ -14,6 +19,7 @@ use crate::focus::{Focus, FocusBag};
 use crate::focus::PriTree;
 use crate::deriver::Deriver;
 use crate::deriver::rule::RuleDeriver;
+use crate::control::budget::{Budget, DefaultBudget};
 use std::sync::Arc;
 
 /// Non-Axiomatic Reasoner (NAR) - The main reasoning system
@@ -36,6 +42,9 @@ pub struct NAR {
     /// The deriver
     pub deriver: Box<dyn Deriver>,
 
+    /// The budgeting system for attention allocation
+    pub budget: Box<dyn Budget>,
+
     /// Self identifier term
     _self_term: Term,
     
@@ -54,6 +63,7 @@ impl NAR {
             focus_bag: FocusBag::new(100), // TODO: make capacity configurable
             pri_tree: PriTree::new(),
             deriver: Box::new(RuleDeriver::new()),
+            budget: Box::new(DefaultBudget::default()),
             _self_term: Term::Atomic(crate::term::atom::Atomic::new_atom("self")),
             running: false,
         };
@@ -138,7 +148,7 @@ impl NAR {
         // 2. Perform inference
         let focus = focus_override.or_else(|| self.focus_bag.sample_by_priority().cloned());
         if let Some(focus) = focus {
-            let derived_tasks = self.deriver.next(&focus, &mut self.memory);
+            let derived_tasks = self.deriver.next(&focus, &mut self.memory, &self.budget);
             for task in derived_tasks {
                 self.input(task);
             }

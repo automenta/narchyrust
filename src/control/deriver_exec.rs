@@ -2,22 +2,25 @@
 use crate::deriver::Deriver;
 use crate::focus::FocusBag;
 use crate::memory::simple::SimpleMemory;
+use crate::control::budget::{Budget};
 
 #[allow(dead_code)]
 pub struct DeriverExec {
     deriver: Box<dyn Deriver>,
     focus_bag: FocusBag,
     memory: SimpleMemory,
+    budget: Box<dyn Budget>,
     throttle: f32,
 }
 
 #[allow(dead_code)]
 impl DeriverExec {
-    pub fn new(deriver: Box<dyn Deriver>, focus_bag: FocusBag, memory: SimpleMemory) -> Self {
+    pub fn new(deriver: Box<dyn Deriver>, focus_bag: FocusBag, memory: SimpleMemory, budget: Box<dyn Budget>) -> Self {
         DeriverExec {
             deriver,
             focus_bag,
             memory,
+            budget,
             throttle: 1.0,
         }
     }
@@ -25,7 +28,7 @@ impl DeriverExec {
     pub fn run(&mut self) {
         if self.throttle > 0.0 {
             if let Some(focus) = self.focus_bag.sample_by_priority() {
-                self.deriver.next(focus, &mut self.memory);
+                self.deriver.next(focus, &mut self.memory, &self.budget);
             }
         }
     }
@@ -38,6 +41,7 @@ impl DeriverExec {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::control::budget::DefaultBudget;
     use crate::deriver::reaction::ReactionModel;
     use crate::focus::Focus;
     use crate::task::Task;
@@ -48,7 +52,7 @@ mod tests {
     }
 
     impl Deriver for MockDeriver {
-        fn next(&mut self, _focus: &Focus, _memory: &mut SimpleMemory) -> Vec<Task> {
+        fn next(&mut self, _focus: &Focus, _memory: &mut SimpleMemory, _budget: &Box<dyn Budget>) -> Vec<Task> {
             *self.next_called.borrow_mut() = true;
             Vec::new()
         }
@@ -64,7 +68,8 @@ mod tests {
         let mut focus_bag = FocusBag::new(10);
         focus_bag.add(Focus::new(crate::Term::Atomic(crate::term::atom::Atomic::new_atom("test"))));
         let memory = SimpleMemory::new(10);
-        let mut deriver_exec = DeriverExec::new(Box::new(deriver), focus_bag, memory);
+        let budget = Box::new(DefaultBudget::default());
+        let mut deriver_exec = DeriverExec::new(Box::new(deriver), focus_bag, memory, budget);
 
         deriver_exec.run();
 

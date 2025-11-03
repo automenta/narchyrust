@@ -1,8 +1,6 @@
 
 pub mod compiler;
 
-use crate::deriver::Deriver;
-
 #[allow(dead_code)]
 pub struct Reaction {}
 

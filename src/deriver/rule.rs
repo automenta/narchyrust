@@ -1,5 +1,7 @@
 //! Rule-based deriver for NARS
 
+//! Rule-based deriver for NARS
+
 use crate::deriver::Deriver;
 use crate::focus::Focus;
 use crate::memory::simple::SimpleMemory;
@@ -7,6 +9,7 @@ use crate::task::{Task, Punctuation, Time, Budget};
 use crate::term::{Term, TermTrait, Op};
 use crate::nal::unify::unify;
 use crate::parser;
+use crate::control::budget;
 use std::collections::HashMap;
 
 /// A deriver that uses a set of rules to derive new tasks.
@@ -33,7 +36,7 @@ impl RuleDeriver {
 }
 
 impl Deriver for RuleDeriver {
-    fn next(&mut self, focus: &Focus, memory: &mut SimpleMemory) -> Vec<Task> {
+    fn next(&mut self, focus: &Focus, memory: &mut SimpleMemory, budget: &Box<dyn budget::Budget>) -> Vec<Task> {
         let mut new_tasks = Vec::new();
 
         let all_beliefs: Vec<Term> = memory.concepts()
@@ -63,7 +66,7 @@ impl Deriver for RuleDeriver {
                             let solutions = find_matches(&other_premises, &other_beliefs, initial_bindings);
                             for bindings in solutions {
                                 let new_term = apply_bindings(conclusion_pattern, &bindings);
-                                let new_task = Task::with_auto_id(
+                                let mut new_task = Task::with_auto_id(
                                     new_term,
                                     None, // Simplified for now
                                     Punctuation::Belief,
@@ -72,6 +75,9 @@ impl Deriver for RuleDeriver {
                                     vec![],
                                     0,
                                 );
+                                // Set the budget using the pri_derived function
+                                let priority = budget.pri_derived(&new_task, &*self);
+                                new_task.budget_mut().set_priority(priority);
                                 new_tasks.push(new_task);
                             }
                         }
@@ -129,6 +135,8 @@ mod tests {
     use crate::term::{atom::Atomic, compound::Compound, var::Variable};
     use crate::memory::simple::SimpleMemory;
     use crate::task::{Task, Punctuation, Budget, Time};
+    use crate::control::budget::DefaultBudget;
+    use crate::focus::Focus;
 
     #[test]
     fn test_derivation_loop_single_premise() {
@@ -160,7 +168,8 @@ mod tests {
         memory.add_concept(concept);
 
         // Run the deriver
-        let new_tasks = deriver.next(&Focus::new(belief_term.clone()), &mut memory);
+        let budget: Box<dyn budget::Budget> = Box::new(DefaultBudget::default());
+        let new_tasks = deriver.next(&Focus::new(belief_term.clone()), &mut memory, &budget);
 
         // Check the derived task
         assert_eq!(new_tasks.len(), 1);
@@ -206,7 +215,8 @@ mod tests {
         memory.add_concept(concept2);
 
         // Run the deriver
-        let new_tasks = deriver.next(&Focus::new(belief1_term.clone()), &mut memory);
+        let budget: Box<dyn budget::Budget> = Box::new(DefaultBudget::default());
+        let new_tasks = deriver.next(&Focus::new(belief1_term.clone()), &mut memory, &budget);
 
         // Check the derived task
         assert_eq!(new_tasks.len(), 1);

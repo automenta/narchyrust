@@ -9,6 +9,7 @@ pub mod reaction;
 use crate::focus::Focus;
 use crate::memory::simple::SimpleMemory;
 use crate::task::Task;
+use crate::control::budget::Budget;
 
 use crate::deriver::reaction::ReactionModel;
 
@@ -20,11 +21,12 @@ pub trait Deriver {
     ///
     /// * `focus` - The concept to focus on.
     /// * `memory` - A reference to the memory.
+    /// * `budget` - The budget to use for the new tasks.
     ///
     /// # Returns
     ///
     /// A vector of new tasks.
-    fn next(&mut self, focus: &Focus, memory: &mut SimpleMemory) -> Vec<Task>;
+    fn next(&mut self, focus: &Focus, memory: &mut SimpleMemory, budget: &Box<dyn Budget>) -> Vec<Task>;
 
     /// Sets the reaction model for the deriver.
     ///
