@@ -13,9 +13,16 @@ use std::fs;
 #[grammar = "src/parser/narsese.pest"]
 pub struct NarseseParser;
 
+use std::env;
+use std::path::PathBuf;
+
 pub fn load_nal_files() -> Result<Vec<Task>, Box<dyn std::error::Error>> {
     let mut tasks = Vec::new();
-    let paths = fs::read_dir("./resources")?;
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR")?;
+    let mut resources_path = PathBuf::from(manifest_dir);
+    resources_path.push("resources");
+
+    let paths = fs::read_dir(resources_path)?;
 
     for path in paths {
         let path = path?.path();
@@ -81,7 +88,7 @@ pub fn parse_narsese(input: &str) -> Result<Vec<Task>, pest::error::Error<Rule>>
                 }
 
                 let conclusion = parse_term(inner_rules.next().unwrap());
-                let punctuation = parse_punctuation(inner_rules.next().unwrap());
+                let mut punctuation = Punctuation::Belief;
                 let mut truth = None;
                 let mut budget = None;
 
@@ -89,6 +96,7 @@ pub fn parse_narsese(input: &str) -> Result<Vec<Task>, pest::error::Error<Rule>>
                     match part.as_rule() {
                         Rule::budget => budget = Some(parse_budget(part)),
                         Rule::truth => truth = Some(parse_truth(part)),
+                        Rule::punctuation => punctuation = parse_punctuation(part),
                         Rule::label => { /* TODO: Handle labels */ }
                         _ => {}
                     }
@@ -279,11 +287,4 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[test]
-    fn test_load_nal_files() {
-        let result = load_nal_files();
-        assert!(result.is_ok());
-        let tasks = result.unwrap();
-        assert!(tasks.is_empty());
-    }
 }

@@ -3,7 +3,7 @@ WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
 input = { SOI ~ (WHITESPACE* ~ (line_comment | block_comment | rule_block | task | inference_rule | term_command_task))* ~ EOI }
 
 rule_block = { atom ~ "{" ~ (WHITESPACE* ~ (line_comment | block_comment | inference_rule))* ~ "}" }
-inference_rule = { term? ~ ("," ~ WHITESPACE* ~ term)* ~ WHITESPACE* ~ "|-" ~ WHITESPACE* ~ term ~ WHITESPACE* ~ punctuation ~ occurrence? ~ truth? ~ label? }
+inference_rule = { term? ~ ("," ~ WHITESPACE* ~ term)* ~ WHITESPACE* ~ "|-" ~ WHITESPACE* ~ term ~ WHITESPACE* ~ (punctuation ~ occurrence? ~ truth?)? ~ label? }
 
 line_comment = { "//" ~ (!("\n") ~ ANY)* }
 block_comment = { "/*" ~ (block_comment | !"*/" ~ ANY)* ~ "*/" }
@@ -24,7 +24,7 @@ occurrence = { ":/" ~ occurrence_time ~ ( ".." ~ occurrence_time )? ~ ":\\" }
 occurrence_time = { ("now" | "|" | ":|:") | time_unit | ("-" | "+")? ~ ASCII_DIGIT+ }
 time_unit = { ("-" | "+")? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT*)? ~ ASCII_ALPHA+ }
 
-term = { statement | compound_term | atomic_term | variable | function_call | prefixed_function_call | prefixed_atomic_term | atom }
+term = { statement | compound_term | function_call | prefixed_function_call | prefixed_atomic_term | atomic_term | variable | atom }
 
 prefixed_function_call = { "--" ~ function_call }
 prefixed_atomic_term = { "--" ~ atomic_term }

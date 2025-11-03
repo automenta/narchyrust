@@ -11,6 +11,7 @@ use crate::truth::Truth;
 use crate::Term;
 use crate::term::Op;
 use crate::deriver::brute_force::BruteForceDeriver;
+use crate::deriver::reaction::ReactionModel;
 use crate::term::compound::Compound;
 use crate::term::TermTrait;
 
@@ -18,6 +19,7 @@ use crate::term::TermTrait;
 pub struct RuleDeriver {
     rule_tree: RuleTree,
     brute_force_deriver: BruteForceDeriver,
+    reaction_model: Option<ReactionModel>,
 }
 
 impl RuleDeriver {
@@ -43,13 +45,16 @@ impl RuleDeriver {
         Self {
             rule_tree,
             brute_force_deriver: BruteForceDeriver::new(),
+            reaction_model: None,
         }
     }
 }
 
+use crate::focus::Focus;
+
 impl Deriver for RuleDeriver {
     /// Derives new tasks from the current state of the NAR.
-    fn derive(&mut self, memory: &SimpleMemory, focus_bag: &mut FocusBag, pri_tree: &mut PriTree) -> Vec<Task> {
+    fn next(&mut self, _focus: &Focus, memory: &mut SimpleMemory) -> Vec<Task> {
         let mut new_tasks = self.brute_force_deriver.derive_syllogism(memory);
 
         let concepts = memory.concepts().cloned().collect::<Vec<_>>();
@@ -76,5 +81,9 @@ impl Deriver for RuleDeriver {
         }
 
         new_tasks
+    }
+
+    fn set_reaction_model(&mut self, model: ReactionModel) {
+        self.reaction_model = Some(model);
     }
 }

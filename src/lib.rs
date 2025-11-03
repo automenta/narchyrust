@@ -17,6 +17,7 @@ pub mod parser;
 pub mod focus;
 pub mod time;
 pub mod deriver;
+pub mod control;
 
 // Re-export the main components for easier access
 pub use term::Term;

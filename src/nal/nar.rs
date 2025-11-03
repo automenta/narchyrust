@@ -10,10 +10,10 @@ use crate::term::Term;
 use crate::concept::util::ConceptBuilder;
 use crate::time::Time;
 use crate::truth::Truth;
-use crate::focus::FocusBag;
+use crate::focus::{Focus, FocusBag};
 use crate::focus::PriTree;
 use crate::deriver::Deriver;
-use crate::deriver::rule_based::RuleDeriver;
+use crate::deriver::syllogistic::SyllogisticDeriver;
 use std::sync::Arc;
 
 /// Non-Axiomatic Reasoner (NAR) - The main reasoning system
@@ -53,7 +53,7 @@ impl NAR {
             time: time_ref.clone(),
             focus_bag: FocusBag::new(100), // TODO: make capacity configurable
             pri_tree: PriTree::new(),
-            deriver: Box::new(RuleDeriver::new()),
+            deriver: Box::new(SyllogisticDeriver::new()),
             _self_term: Term::Atomic(crate::term::atom::Atomic::new_atom("self")),
             running: false,
         };
@@ -65,6 +65,7 @@ impl NAR {
         nar
     }
     
+
     /// Input a task into the system
     pub fn input(&mut self, task: Task) {
         // For now, add the task to memory by creating or updating its concept
@@ -79,6 +80,7 @@ impl NAR {
             concept.add_task(task);
             self.memory.add_concept(concept);
         }
+        self.focus_bag.add(Focus::new(term));
     }
     
     /// Input a string as a task
@@ -134,9 +136,11 @@ impl NAR {
         self.focus_bag.commit();
 
         // 2. Perform inference
-        let derived_tasks = self.deriver.derive(&self.memory, &mut self.focus_bag, &mut self.pri_tree);
-        for task in derived_tasks {
-            self.input(task);
+        if let Some(focus) = self.focus_bag.sample_by_priority() {
+            let derived_tasks = self.deriver.next(focus, &mut self.memory);
+            for task in derived_tasks {
+                self.input(task);
+            }
         }
 
         // 3. Advance time

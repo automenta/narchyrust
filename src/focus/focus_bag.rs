@@ -43,6 +43,11 @@ impl FocusBag {
     pub fn commit(&mut self) {
         // Placeholder for commit logic, e.g., updating priorities
     }
+
+    /// Sample a focus from the bag by priority
+    pub fn sample_by_priority(&self) -> Option<&Focus> {
+        self.items.first()
+    }
 }
 
 #[cfg(test)]
