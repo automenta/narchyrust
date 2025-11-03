@@ -141,46 +141,54 @@ impl TermTrait for Compound {
     }
 }
 
-impl fmt::Display for Compound {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.operator {
-            Op::Neg => {
-                // Unary operator
-                if let Some(term) = self.subterms.first() {
-                    write!(f, "--{}", term)
-                } else {
-                    write!(f, "--")
+fn append_compound_term(c: &Compound, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let op = c.op_id();
+
+    match op {
+        Op::SetExt | Op::SetInt => {
+            let (opener, closer) = if op == Op::SetExt { ('{', '}') } else { ('[', ']') };
+            write!(f, "{}", opener)?;
+            for (i, subterm) in c.subterms().iter().enumerate() {
+                if i > 0 { write!(f, ", ")?; }
+                write!(f, "{}", subterm)?;
+            }
+            write!(f, "{}", closer)?;
+        }
+        Op::Product => {
+            write!(f, "(")?;
+            for (i, subterm) in c.subterms().iter().enumerate() {
+                if i > 0 { write!(f, ", ")?; }
+                write!(f, "{}", subterm)?;
+            }
+            write!(f, ")")?;
+        }
+        Op::Neg => {
+            write!(f, "(--, {})", c.subterms()[0])?;
+        }
+        _ => {
+            if c.subterms().len() == 2 && op != Op::Rule {
+                write!(f, "({} {} {})", c.subterms()[0], op, c.subterms()[1])?;
+            } else {
+                write!(f, "({}", op)?;
+                for subterm in c.subterms() {
+                    write!(f, " {}", subterm)?;
                 }
-            },
-            Op::Inheritance | Op::Implication | Op::Similarity | Op::Equivalence => {
-                // Binary operators with infix notation
-                if self.subterms.len() == 2 {
-                    write!(f, "({} {} {})", self.subterms[0], self.operator, self.subterms[1])
-                } else {
-                    write!(f, "({} {})", self.operator, 
-                           self.subterms.iter().map(|t| format!("{}", t)).collect::<Vec<_>>().join(" "))
-                }
-            },
-            Op::Conjunction | Op::Disjunction => {
-                // N-ary operators with infix notation
-                if let Some(dt) = self.dt {
-                    write!(f, "({})",
-                           self.subterms.iter().map(|t| format!("{}", t)).collect::<Vec<_>>().join(&format!(" {} ", self.operator)))?;
-                    if dt != 0 {
-                        write!(f, "_{}", dt)?;
-                    }
-                    Ok(())
-                } else {
-                    write!(f, "({})",
-                           self.subterms.iter().map(|t| format!("{}", t)).collect::<Vec<_>>().join(&format!(" {} ", self.operator)))
-                }
-            },
-            _ => {
-                // Default prefix notation
-                write!(f, "({} {})", self.operator, 
-                       self.subterms.iter().map(|t| format!("{}", t)).collect::<Vec<_>>().join(" "))
+                write!(f, ")")?;
             }
         }
+    }
+
+    if let Some(dt) = c.dt() {
+        write!(f, "_{}", dt)?;
+    }
+
+    Ok(())
+}
+
+
+impl fmt::Display for Compound {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        append_compound_term(self, f)
     }
 }
 
@@ -250,7 +258,7 @@ mod tests {
         // Test negation
         let neg_subterms = vec![atom1.clone()];
         let negation = Compound::new(Op::Neg, neg_subterms);
-        assert_eq!(format!("{}", negation), "--cat");
+        assert_eq!(format!("{}", negation), "(--, cat)");
         
         // Test temporal conjunction
         let temp_subterms = vec![atom1, atom2];
@@ -271,7 +279,7 @@ mod tests {
         
         // Test parallel conjunction (&|)
         let par_compound = Compound::new_temporal(Op::Intersection, vec![a.clone(), b.clone()], 0);
-        assert_eq!(format!("{}", par_compound), "(| a b)");
+        assert_eq!(format!("{}", par_compound), "(a | b)_0");
     }
     
     #[test]

@@ -55,6 +55,7 @@ pub enum Op {
     VarDep,
     VarIndep,
     VarQuery,
+    VarPattern,
     
     // Compound operators
     Neg,
@@ -77,6 +78,7 @@ pub enum Op {
     SetExt,
     SetInt,
     Product,
+    Rule,
 }
 
 impl fmt::Display for Op {
@@ -88,6 +90,7 @@ impl fmt::Display for Op {
             Op::VarDep => write!(f, "#"),
             Op::VarIndep => write!(f, "$"),
             Op::VarQuery => write!(f, "?"),
+            Op::VarPattern => write!(f, "%"),
             Op::Neg => write!(f, "--"),
             Op::Negation => write!(f, "--"),
             Op::Conjunction => write!(f, "&&"),
@@ -106,6 +109,7 @@ impl fmt::Display for Op {
             Op::SetExt => write!(f, "{{}}"),
             Op::SetInt => write!(f, "[]"),
             Op::Product => write!(f, "*"),
+            Op::Rule => write!(f, "|-"),
         }
     }
 }
@@ -318,5 +322,27 @@ mod tests {
         let inheritance1 = Term::Compound(Compound::new(Op::Inheritance, vec![cat1.clone(), animal.clone()]));
         let inheritance2 = Term::Compound(Compound::new(Op::Inheritance, vec![cat2.clone(), animal.clone()]));
         assert_eq!(inheritance1, inheritance2);
+    }
+
+    #[test]
+    fn test_rule_representation() {
+        use crate::term::var::Variable;
+        use crate::term::compound::Compound;
+
+        // Represent the rule: (%S --> %M), (%M --> %P) |- (%S --> %P)
+        let s = Term::Variable(Variable::new_pattern("S"));
+        let m = Term::Variable(Variable::new_pattern("M"));
+        let p = Term::Variable(Variable::new_pattern("P"));
+
+        let premise1 = Term::Compound(Compound::new(Op::Inheritance, vec![s.clone(), m.clone()]));
+        let premise2 = Term::Compound(Compound::new(Op::Inheritance, vec![m.clone(), p.clone()]));
+
+        let premises = Term::Compound(Compound::new(Op::Product, vec![premise1, premise2]));
+
+        let conclusion = Term::Compound(Compound::new(Op::Inheritance, vec![s.clone(), p.clone()]));
+
+        let rule = Term::Compound(Compound::new(Op::Rule, vec![premises, conclusion]));
+
+        assert_eq!(format!("{}", rule), "(|- ((%S --> %M), (%M --> %P)) (%S --> %P))");
     }
 }

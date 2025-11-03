@@ -3,11 +3,8 @@
 //! The deriver is responsible for applying inference rules to the current
 //! state of the reasoner and generating new tasks.
 
-pub mod brute_force;
 pub mod rule;
-pub mod rule_based;
 pub mod reaction;
-pub mod syllogistic;
 
 use crate::focus::Focus;
 use crate::memory::simple::SimpleMemory;

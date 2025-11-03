@@ -8,3 +8,4 @@
 
 pub mod nar;
 pub mod inference;
+pub mod unify;

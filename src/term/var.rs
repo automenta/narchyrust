@@ -67,12 +67,26 @@ impl Variable {
         &self.name[1..] // Skip the first character which is the prefix
     }
     
+    /// Create a new pattern variable
+    pub fn new_pattern(name: &str) -> Self {
+        let full_name: SmartString<smartstring::LazyCompact> = if name.starts_with('%') {
+            SmartString::from(name)
+        } else {
+            SmartString::from(format!("%{}", name))
+        };
+        Variable {
+            name: full_name.into(),
+            var_type: Op::VarPattern,
+        }
+    }
+
     /// Get the variable prefix
     pub fn prefix(&self) -> char {
         match self.var_type {
             Op::VarDep => '#',
             Op::VarIndep => '$',
             Op::VarQuery => '?',
+            Op::VarPattern => '%',
             _ => panic!("Invalid variable type"),
         }
     }
@@ -155,6 +169,12 @@ mod tests {
         assert_eq!(query_var.op_id(), Op::VarQuery);
         assert_eq!(query_var.prefix(), '?');
         assert_eq!(query_var.name(), "z");
+
+        let pattern_var = Variable::new_pattern("S");
+        assert_eq!(format!("{}", pattern_var), "%S");
+        assert_eq!(pattern_var.op_id(), Op::VarPattern);
+        assert_eq!(pattern_var.prefix(), '%');
+        assert_eq!(pattern_var.name(), "S");
     }
 
     #[test]

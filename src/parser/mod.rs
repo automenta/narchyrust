@@ -78,14 +78,8 @@ pub fn parse_narsese(input: &str) -> Result<Vec<Task>, pest::error::Error<Rule>>
             }
             Rule::inference_rule => {
                 let mut inner_rules = pair.into_inner();
-                let mut premises = Vec::new();
-                while let Some(p) = inner_rules.peek() {
-                    if p.as_rule() == Rule::term {
-                        premises.push(parse_term(inner_rules.next().unwrap()));
-                    } else {
-                        break;
-                    }
-                }
+                let premises_pair = inner_rules.next().unwrap();
+                let premises = premises_pair.into_inner().map(parse_term).collect();
 
                 let conclusion = parse_term(inner_rules.next().unwrap());
                 let mut punctuation = Punctuation::Belief;
@@ -102,7 +96,7 @@ pub fn parse_narsese(input: &str) -> Result<Vec<Task>, pest::error::Error<Rule>>
                     }
                 }
 
-                let term = Term::Compound(Compound::new(Op::Implication, vec![Term::Compound(Compound::new(Op::Conjunction, premises)), conclusion]));
+                let term = Term::Compound(Compound::new(Op::Rule, vec![Term::Compound(Compound::new(Op::Product, premises)), conclusion]));
 
                 if truth.is_none() && punctuation == Punctuation::Belief {
                     truth = Some(Truth::default_belief());
@@ -160,7 +154,18 @@ fn parse_term(pair: pest::iterators::Pair<Rule>) -> Term {
             }
         }
         Rule::atomic_term => parse_atomic_term(pair.into_inner().next().unwrap()),
-        Rule::variable => Term::Variable(crate::term::var::Variable::new_indep(pair.as_str())),
+        Rule::variable => {
+            let var_str = pair.as_str();
+            let prefix = var_str.chars().next().unwrap();
+            let name = &var_str[1..];
+            match prefix {
+                '$' => Term::Variable(crate::term::var::Variable::new_indep(name)),
+                '#' => Term::Variable(crate::term::var::Variable::new_dep(name)),
+                '?' => Term::Variable(crate::term::var::Variable::new_query(name)),
+                '%' => Term::Variable(crate::term::var::Variable::new_pattern(name)),
+                _ => unreachable!(),
+            }
+        }
         _ => unreachable!(),
     }
 }
@@ -244,7 +249,7 @@ mod tests {
 
     #[test]
     fn test_parse_compound_term() {
-        let result = parse_narsese("(<a --> b> && <c --> d>).");
+        let result = parse_narsese("((a --> b) && (c --> d)).");
         assert!(result.is_ok());
         let tasks = result.unwrap();
         assert_eq!(tasks.len(), 1);
@@ -272,7 +277,7 @@ mod tests {
 
     #[test]
     fn test_parse_inheritance_term() {
-        let result = parse_narsese("<bird --> flyer>.");
+        let result = parse_narsese("(bird --> flyer).");
         assert!(result.is_ok());
         let tasks = result.unwrap();
         assert_eq!(tasks.len(), 1);
@@ -287,4 +292,14 @@ mod tests {
         assert!(result.is_ok());
     }
 
+    #[test]
+    fn test_parse_inference_rule() {
+        let result = parse_narsese("(%S --> %M) , (%M --> %P) |- (%S --> %P).");
+        assert!(result.is_ok());
+        let tasks = result.unwrap();
+        assert_eq!(tasks.len(), 1);
+        let task = &tasks[0];
+        assert_eq!(task.term().to_string(), "(|- ((%S --> %M), (%M --> %P)) (%S --> %P))");
+        assert_eq!(task.punctuation(), Punctuation::Belief);
+    }
 }

@@ -13,7 +13,7 @@ use crate::truth::Truth;
 use crate::focus::{Focus, FocusBag};
 use crate::focus::PriTree;
 use crate::deriver::Deriver;
-use crate::deriver::syllogistic::SyllogisticDeriver;
+use crate::deriver::rule::RuleDeriver;
 use std::sync::Arc;
 
 /// Non-Axiomatic Reasoner (NAR) - The main reasoning system
@@ -48,12 +48,12 @@ impl NAR {
     pub fn new(time: Time, concept_builder: ConceptBuilder) -> Self {
         let time_ref = Arc::new(time);
         let mut nar = NAR {
-            memory: Memory::new(10000),
+            memory: Memory::new(100),
             concept_builder,
             time: time_ref.clone(),
             focus_bag: FocusBag::new(100), // TODO: make capacity configurable
             pri_tree: PriTree::new(),
-            deriver: Box::new(SyllogisticDeriver::new()),
+            deriver: Box::new(RuleDeriver::new()),
             _self_term: Term::Atomic(crate::term::atom::Atomic::new_atom("self")),
             running: false,
         };
@@ -130,14 +130,15 @@ impl NAR {
     }
     
     /// Single reasoning cycle
-    pub fn cycle(&mut self) {
+    pub fn cycle(&mut self, focus_override: Option<Focus>) {
         // 1. Update priorities
         self.pri_tree.commit();
         self.focus_bag.commit();
 
         // 2. Perform inference
-        if let Some(focus) = self.focus_bag.sample_by_priority() {
-            let derived_tasks = self.deriver.next(focus, &mut self.memory);
+        let focus = focus_override.or_else(|| self.focus_bag.sample_by_priority().cloned());
+        if let Some(focus) = focus {
+            let derived_tasks = self.deriver.next(&focus, &mut self.memory);
             for task in derived_tasks {
                 self.input(task);
             }
@@ -252,5 +253,30 @@ mod tests {
         let concept = nar.conceptualize(&term);
         
         assert!(concept.is_some());
+    }
+
+    #[test]
+    fn test_end_to_end_deduction() {
+        let time = Time::new();
+        let concept_builder = ConceptBuilder::new();
+        let mut nar = NAR::new(time, concept_builder);
+
+        // Input beliefs
+        nar.input_string("(robin --> bird).").unwrap();
+        nar.input_string("(bird --> animal).").unwrap();
+
+        // Run the reasoning cycle
+        let beliefs_to_focus = vec![
+            crate::parser::parse_narsese("(robin --> bird).").unwrap().remove(0).term().clone(),
+            crate::parser::parse_narsese("(bird --> animal).").unwrap().remove(0).term().clone(),
+        ];
+        for belief in beliefs_to_focus {
+            nar.cycle(Some(Focus::new(belief)));
+        }
+
+        // Check if the conclusion is derived
+        let conclusion_task = crate::parser::parse_narsese("(robin --> animal).").unwrap().remove(0);
+        let conclusion_term = conclusion_task.term();
+        assert!(nar.memory.get_concept(conclusion_term).is_some());
     }
 }

@@ -22,7 +22,7 @@ fn main() {
     // Run a few cycles of reasoning
     println!("\nRunning reasoning cycles...");
     for _ in 1..=10 {
-        nar.cycle();
+        nar.cycle(None);
     }
     
     println!("\nNAR execution completed.");

@@ -3,7 +3,8 @@ WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
 input = { SOI ~ (WHITESPACE* ~ (line_comment | block_comment | rule_block | task | inference_rule | term_command_task))* ~ EOI }
 
 rule_block = { atom ~ "{" ~ (WHITESPACE* ~ (line_comment | block_comment | inference_rule))* ~ "}" }
-inference_rule = { term? ~ ("," ~ WHITESPACE* ~ term)* ~ WHITESPACE* ~ "|-" ~ WHITESPACE* ~ term ~ WHITESPACE* ~ (punctuation ~ occurrence? ~ truth?)? ~ label? }
+premises = { term ~ ("," ~ WHITESPACE* ~ term)* }
+inference_rule = { premises ~ WHITESPACE* ~ "|-" ~ WHITESPACE* ~ term ~ WHITESPACE* ~ (punctuation ~ occurrence? ~ truth?)? ~ label? }
 
 line_comment = { "//" ~ (!("\n") ~ ANY)* }
 block_comment = { "/*" ~ (block_comment | !"*/" ~ ANY)* ~ "*/" }
@@ -29,7 +30,7 @@ term = { statement | compound_term | function_call | prefixed_function_call | pr
 prefixed_function_call = { "--" ~ function_call }
 prefixed_atomic_term = { "--" ~ atomic_term }
 
-statement = { "<" ~ term ~ "-->" ~ term ~ ">" }
+statement = { "(" ~ term ~ "-->" ~ term ~ ")" }
 
 compound_term = { "(" ~ term ~ (WHITESPACE* ~ op? ~ WHITESPACE* ~ term)* ~ ")" | "{" ~ term ~ ("," ~ term)* ~ "}" | "(" ~ term ~ ")" }
 op = @{ "&&" | "&" | "||" | "|" | "==>" | "<=>" | "-->" | "<->" | "->" | "<-" | "--" | "|-" | "=" | "<~>" }
@@ -45,4 +46,4 @@ uri_atom = @{ "<" ~ (!">" ~ ANY)+ ~ ">" }
 number_atom = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
 atom_quoted = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
 
-variable = @{ ("$" | "#" | "?") ~ (ASCII_ALPHANUMERIC | "_")+ }
+variable = @{ ("$" | "#" | "?" | "%") ~ (ASCII_ALPHANUMERIC | "_")+ }
