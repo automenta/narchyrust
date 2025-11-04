@@ -146,7 +146,7 @@ impl NAR {
         self.focus_bag.commit();
 
         // 2. Perform inference
-        let focus = focus_override.or_else(|| self.focus_bag.sample_by_priority().cloned());
+        let focus = focus_override.or_else(|| self.focus_bag.sample_by_priority().map(|f| f.clone()));
         if let Some(focus) = focus {
             let derived_tasks = self.deriver.next(&focus, &mut self.memory, &self.budget);
             for task in derived_tasks {

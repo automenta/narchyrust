@@ -45,8 +45,12 @@ impl FocusBag {
     }
 
     /// Sample a focus from the bag by priority
-    pub fn sample_by_priority(&self) -> Option<&Focus> {
-        self.items.first()
+    pub fn sample_by_priority(&mut self) -> Option<Focus> {
+        if self.items.is_empty() {
+            None
+        } else {
+            Some(self.items.remove(0))
+        }
     }
 }
 

@@ -79,7 +79,7 @@ pub fn parse_narsese(input: &str) -> Result<Vec<Task>, pest::error::Error<Rule>>
             Rule::inference_rule => {
                 let mut inner_rules = pair.into_inner();
                 let premises_pair = inner_rules.next().unwrap();
-                let premises = premises_pair.into_inner().map(parse_term).collect();
+                let premises: Vec<Term> = premises_pair.into_inner().map(parse_term).collect();
 
                 let conclusion = parse_term(inner_rules.next().unwrap());
                 let mut punctuation = Punctuation::Belief;
@@ -96,7 +96,12 @@ pub fn parse_narsese(input: &str) -> Result<Vec<Task>, pest::error::Error<Rule>>
                     }
                 }
 
-                let term = Term::Compound(Compound::new(Op::Rule, vec![Term::Compound(Compound::new(Op::Product, premises)), conclusion]));
+                let premises_term = if premises.len() > 1 {
+                    Term::Compound(Compound::new(Op::Product, premises))
+                } else {
+                    premises.into_iter().next().unwrap()
+                };
+                let term = Term::Compound(Compound::new(Op::Rule, vec![premises_term, conclusion]));
 
                 if truth.is_none() && punctuation == Punctuation::Belief {
                     truth = Some(Truth::default_belief());
@@ -299,7 +304,7 @@ mod tests {
         let tasks = result.unwrap();
         assert_eq!(tasks.len(), 1);
         let task = &tasks[0];
-        assert_eq!(task.term().to_string(), "(|- ((%S --> %M), (%M --> %P)) (%S --> %P))");
+        assert_eq!(task.term().to_string(), "(|- (&& (%S --> %M) (%M --> %P)) (%S --> %P))");
         assert_eq!(task.punctuation(), Punctuation::Belief);
     }
 }

@@ -14,13 +14,18 @@ use std::collections::HashMap;
 /// # Returns
 ///
 /// `true` if the terms unify, `false` otherwise.
-pub fn unify<'a>(pattern: &'a Term, term: &'a Term, bindings: &mut HashMap<&'a Term, &'a Term>) -> bool {
+pub fn unify(pattern: &Term, term: &Term, bindings: &mut HashMap<Term, Term>) -> bool {
     match pattern {
         Term::Variable(_) => {
             if let Some(existing_binding) = bindings.get(pattern) {
-                return existing_binding == &term;
+                return existing_binding == term;
             }
-            bindings.insert(pattern, term);
+            if let Term::Variable(_) = term {
+                if let Some(existing_binding) = bindings.get(term) {
+                    return existing_binding == pattern;
+                }
+            }
+            bindings.insert(pattern.clone(), term.clone());
             true
         }
         Term::Atomic(_) => {
@@ -65,7 +70,7 @@ mod tests {
         let bird = Term::Atomic(Atomic::new_atom("bird"));
         let mut bindings = HashMap::new();
         assert!(unify(&var_s, &bird, &mut bindings));
-        assert_eq!(bindings.get(&var_s), Some(&&bird));
+        assert_eq!(bindings.get(&var_s), Some(&bird));
     }
 
     #[test]
@@ -79,7 +84,7 @@ mod tests {
 
         let mut bindings = HashMap::new();
         assert!(unify(&pattern, &term, &mut bindings));
-        assert_eq!(bindings.get(&var_s), Some(&&bird));
+        assert_eq!(bindings.get(&var_s), Some(&bird));
     }
 
     #[test]
@@ -94,5 +99,18 @@ mod tests {
 
         let mut bindings = HashMap::new();
         assert!(!unify(&pattern, &term, &mut bindings));
+    }
+
+    #[test]
+    fn test_unify_with_existing_bindings() {
+        let var_s = Term::Variable(Variable::new_pattern("S"));
+        let robin = Term::Atomic(Atomic::new_atom("robin"));
+        let bird = Term::Atomic(Atomic::new_atom("bird"));
+
+        let mut bindings = HashMap::new();
+        bindings.insert(var_s.clone(), robin.clone());
+
+        assert!(unify(&var_s, &robin, &mut bindings));
+        assert!(!unify(&var_s, &bird, &mut bindings));
     }
 }

@@ -28,7 +28,7 @@ impl DeriverExec {
     pub fn run(&mut self) {
         if self.throttle > 0.0 {
             if let Some(focus) = self.focus_bag.sample_by_priority() {
-                self.deriver.next(focus, &mut self.memory, &self.budget);
+                self.deriver.next(&focus, &mut self.memory, &self.budget);
             }
         }
     }

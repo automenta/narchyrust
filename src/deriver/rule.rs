@@ -94,11 +94,11 @@ impl Deriver for RuleDeriver {
 }
 
 /// Recursively find belief combinations that satisfy all premises.
-fn find_matches<'a>(
-    premises: &'a [Term],
-    beliefs: &'a [Term],
-    bindings: HashMap<&'a Term, &'a Term>,
-) -> Vec<HashMap<&'a Term, &'a Term>> {
+fn find_matches(
+    premises: &[Term],
+    beliefs: &[Term],
+    bindings: HashMap<Term, Term>,
+) -> Vec<HashMap<Term, Term>> {
     if premises.is_empty() {
         return vec![bindings];
     }
@@ -118,11 +118,11 @@ fn find_matches<'a>(
 }
 
 /// Apply bindings to a term.
-fn apply_bindings(term: &Term, bindings: &HashMap<&Term, &Term>) -> Term {
+fn apply_bindings(term: &Term, bindings: &HashMap<Term, Term>) -> Term {
     term.transform(&mut |t| {
         if let Term::Variable(_) = t {
             if let Some(bound_term) = bindings.get(t) {
-                return (*bound_term).clone();
+                return bound_term.clone();
             }
         }
         t.clone()

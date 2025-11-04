@@ -1,5 +1,7 @@
 //! Inference engine for NARS
 
+pub mod truth;
+
 use crate::task::{Task, Punctuation};
 use crate::term::{Term, Op, TermTrait};
 use crate::truth::Truth;
@@ -32,3 +34,5 @@ pub fn inference(task1: &Task, task2: &Task) -> Option<Task> {
 
 #[cfg(test)]
 mod test_deduction;
+#[cfg(test)]
+mod test_truth;
