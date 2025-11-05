@@ -6,39 +6,30 @@
 use pest::Parser;
 use pest_derive::Parser;
 use crate::{Term, Truth, task::{Task, Punctuation, Time, Budget}};
-use crate::term::{atom::Atomic, compound::Compound, Op};
-use std::fs;
+use crate::term::{atom::Atomic, compound::Compound, Op, var::Variable, TermTrait};
+use crate::deriver::rule::Rule as InferenceRule;
+use crate::nal::truth_functions::ImplSyl;
 
 #[derive(Parser)]
 #[grammar = "src/parser/narsese.pest"]
 pub struct NarseseParser;
 
-use std::env;
-use std::path::PathBuf;
+pub fn parse_syllogism_rule() -> InferenceRule {
+    let s = Term::Variable(Variable::new_pattern("S"));
+    let m = Term::Variable(Variable::new_pattern("M"));
+    let p = Term::Variable(Variable::new_pattern("P"));
 
-pub fn load_nal_files() -> Result<Vec<Task>, Box<dyn std::error::Error>> {
-    let mut tasks = Vec::new();
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR")?;
-    let mut resources_path = PathBuf::from(manifest_dir);
-    resources_path.push("resources");
+    let premise1 = Term::Compound(Compound::new(Op::Inheritance, vec![s.clone(), m.clone()]));
+    let premise2 = Term::Compound(Compound::new(Op::Inheritance, vec![m.clone(), p.clone()]));
+    let conclusion = Term::Compound(Compound::new(Op::Inheritance, vec![s.clone(), p.clone()]));
 
-    let paths = fs::read_dir(resources_path)?;
-
-    for path in paths {
-        let path = path?.path();
-        if let Some(extension) = path.extension() {
-            if extension == "nal" {
-                let content = fs::read_to_string(&path)?;
-                match parse_narsese(&content) {
-                    Ok(mut parsed_tasks) => tasks.append(&mut parsed_tasks),
-                    Err(e) => println!("Failed to parse file: {:?}\nError: {}", path, e),
-                }
-            }
-        }
+    InferenceRule {
+        premises: vec![premise1, premise2],
+        conclusion,
+        truth_function: Box::new(ImplSyl),
     }
-
-    Ok(tasks)
 }
+
 
 pub fn parse_narsese(input: &str) -> Result<Vec<Task>, pest::error::Error<Rule>> {
     let pairs = NarseseParser::parse(Rule::input, input)?;
@@ -79,7 +70,17 @@ pub fn parse_narsese(input: &str) -> Result<Vec<Task>, pest::error::Error<Rule>>
             Rule::inference_rule => {
                 let mut inner_rules = pair.into_inner();
                 let premises_pair = inner_rules.next().unwrap();
-                let premises: Vec<Term> = premises_pair.into_inner().map(parse_term).collect();
+
+                let first_premise_term = parse_term(premises_pair.into_inner().next().unwrap());
+                let premises: Vec<Term> = if let Term::Compound(c) = &first_premise_term {
+                    if c.op_id() == Op::Conjunction {
+                        c.subterms().to_vec()
+                    } else {
+                        vec![first_premise_term]
+                    }
+                } else {
+                    vec![first_premise_term]
+                };
 
                 let conclusion = parse_term(inner_rules.next().unwrap());
                 let mut punctuation = Punctuation::Belief;
@@ -96,11 +97,7 @@ pub fn parse_narsese(input: &str) -> Result<Vec<Task>, pest::error::Error<Rule>>
                     }
                 }
 
-                let premises_term = if premises.len() > 1 {
-                    Term::Compound(Compound::new(Op::Product, premises))
-                } else {
-                    premises.into_iter().next().unwrap()
-                };
+                let premises_term = Term::Compound(Compound::new(Op::Conjunction, premises));
                 let term = Term::Compound(Compound::new(Op::Rule, vec![premises_term, conclusion]));
 
                 if truth.is_none() && punctuation == Punctuation::Belief {
@@ -143,19 +140,20 @@ fn parse_term(pair: pest::iterators::Pair<Rule>) -> Term {
             Term::Compound(Compound::new(Op::Inheritance, vec![subj, pred]))
         }
         Rule::compound_term => {
-            let mut inner = pair.into_inner();
-            let first = parse_term(inner.next().unwrap());
-            if let Some(op_pair) = inner.next() {
-                let op = parse_op(op_pair);
-                let mut terms = vec![first];
-                for term_pair in inner {
-                    if term_pair.as_rule() == Rule::term {
-                        terms.push(parse_term(term_pair));
-                    }
+            let inner = pair.into_inner();
+            let mut terms = vec![];
+            let mut op = Op::Conjunction;
+            for term_pair in inner {
+                if term_pair.as_rule() == Rule::op {
+                    op = parse_op(term_pair);
+                } else if term_pair.as_rule() == Rule::term {
+                    terms.push(parse_term(term_pair));
                 }
-                Term::Compound(Compound::new(op, terms))
+            }
+            if terms.len() == 1 {
+                terms.into_iter().next().unwrap()
             } else {
-                first
+                Term::Compound(Compound::new(op, terms))
             }
         }
         Rule::atomic_term => parse_atomic_term(pair.into_inner().next().unwrap()),
@@ -259,7 +257,7 @@ mod tests {
         let tasks = result.unwrap();
         assert_eq!(tasks.len(), 1);
         let task = &tasks[0];
-        assert_eq!(task.term().to_string(), "((a --> b) && (c --> d))");
+        assert_eq!(task.term().to_string(), "(&& (a --> b) (c --> d))");
         assert_eq!(task.punctuation(), Punctuation::Belief);
     }
 
@@ -299,7 +297,7 @@ mod tests {
 
     #[test]
     fn test_parse_inference_rule() {
-        let result = parse_narsese("(%S --> %M) , (%M --> %P) |- (%S --> %P).");
+        let result = parse_narsese("((%S --> %M) && (%M --> %P)) |- (%S --> %P).");
         assert!(result.is_ok());
         let tasks = result.unwrap();
         assert_eq!(tasks.len(), 1);

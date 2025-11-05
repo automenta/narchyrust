@@ -66,7 +66,7 @@ mod tests {
             next_called: RefCell::new(false),
         };
         let mut focus_bag = FocusBag::new(10);
-        focus_bag.add(Focus::new(crate::Term::Atomic(crate::term::atom::Atomic::new_atom("test"))));
+        focus_bag.add(Focus::new(crate::Term::Atomic(crate::term::atom::Atomic::new_atom("test")), None));
         let memory = SimpleMemory::new(10);
         let budget = Box::new(DefaultBudget::default());
         let mut deriver_exec = DeriverExec::new(Box::new(deriver), focus_bag, memory, budget);

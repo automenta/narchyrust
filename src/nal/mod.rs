@@ -9,3 +9,4 @@
 pub mod nar;
 pub mod inference;
 pub mod unify;
+pub mod truth_functions;

@@ -90,7 +90,7 @@ impl NAR {
             concept.add_task(task);
             self.memory.add_concept(concept);
         }
-        self.focus_bag.add(Focus::new(term));
+        self.focus_bag.add(Focus::new(term, None));
     }
     
     /// Input a string as a task
@@ -276,13 +276,8 @@ mod tests {
         nar.input_string("(bird --> animal).").unwrap();
 
         // Run the reasoning cycle
-        let beliefs_to_focus = vec![
-            crate::parser::parse_narsese("(robin --> bird).").unwrap().remove(0).term().clone(),
-            crate::parser::parse_narsese("(bird --> animal).").unwrap().remove(0).term().clone(),
-        ];
-        for belief in beliefs_to_focus {
-            nar.cycle(Some(Focus::new(belief)));
-        }
+        let belief = crate::parser::parse_narsese("(robin --> bird).").unwrap().remove(0);
+        nar.cycle(Some(Focus::new(belief.term().clone(), belief.truth().copied())));
 
         // Check if the conclusion is derived
         let conclusion_task = crate::parser::parse_narsese("(robin --> animal).").unwrap().remove(0);

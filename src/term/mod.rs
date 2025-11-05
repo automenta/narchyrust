@@ -297,12 +297,12 @@ mod tests {
         let walk = Term::Atomic(Atomic::new_atom("walk"));
         let run = Term::Atomic(Atomic::new_atom("run"));
         let conjunction = Term::Compound(Compound::new(Op::Conjunction, vec![walk.clone(), run]));
-        assert_eq!(format!("{}", conjunction), "(walk && run)");
+        assert_eq!(format!("{}", conjunction), "(&& walk run)");
         
         // Test a nested compound term
         let conjunction2 = Term::Compound(Compound::new(Op::Conjunction, vec![cat.clone(), walk.clone()]));
         let nested = Term::Compound(Compound::new(Op::Inheritance, vec![conjunction2, animal.clone()]));
-        assert_eq!(format!("{}", nested), "((cat && walk) --> animal)");
+        assert_eq!(format!("{}", nested), "((&& cat walk) --> animal)");
     }
     
     #[test]

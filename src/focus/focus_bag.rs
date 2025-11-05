@@ -69,7 +69,7 @@ mod tests {
     #[test]
     fn test_focus_bag_add() {
         let mut focus_bag = FocusBag::new(10);
-        let focus = Focus::new(Term::Atomic(crate::term::atom::Atomic::new_atom("test")));
+        let focus = Focus::new(Term::Atomic(crate::term::atom::Atomic::new_atom("test")), None);
         focus_bag.add(focus);
         assert_eq!(focus_bag.items.len(), 1);
     }
@@ -78,7 +78,7 @@ mod tests {
     fn test_focus_bag_remove() {
         let mut focus_bag = FocusBag::new(10);
         let term = Term::Atomic(crate::term::atom::Atomic::new_atom("test"));
-        let focus = Focus::new(term.clone());
+        let focus = Focus::new(term.clone(), None);
         focus_bag.add(focus);
         focus_bag.remove(&term);
         assert_eq!(focus_bag.items.len(), 0);

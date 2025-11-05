@@ -166,7 +166,11 @@ fn append_compound_term(c: &Compound, f: &mut fmt::Formatter<'_>) -> fmt::Result
             write!(f, "(--, {})", c.subterms()[0])?;
         }
         _ => {
-            if c.subterms().len() == 2 && op != Op::Rule {
+            // Special case for temporal conjunctions, which are displayed infix.
+            // All other conjunctions are displayed prefix.
+            if op == Op::Conjunction && c.is_temporal() {
+                write!(f, "({} {} {})", c.subterms()[0], op, c.subterms()[1])?;
+            } else if c.subterms().len() == 2 && op != Op::Rule && op != Op::Conjunction {
                 write!(f, "({} {} {})", c.subterms()[0], op, c.subterms()[1])?;
             } else {
                 write!(f, "({}", op)?;
@@ -248,7 +252,7 @@ mod tests {
         // Test conjunction
         let conj_subterms = vec![atom1.clone(), atom2.clone()];
         let conjunction = Compound::new(Op::Conjunction, conj_subterms);
-        assert_eq!(format!("{}", conjunction), "(cat && dog)");
+        assert_eq!(format!("{}", conjunction), "(&& cat dog)");
         
         // Test inheritance
         let inh_subterms = vec![atom1.clone(), atom2.clone()];
@@ -291,6 +295,6 @@ mod tests {
         // Test nested compounds
         let conjunction = Term::Compound(Compound::new(Op::Conjunction, vec![cat.clone(), dog.clone()]));
         let inheritance = Term::Compound(Compound::new(Op::Inheritance, vec![conjunction, animal]));
-        assert_eq!(format!("{}", inheritance), "((cat && dog) --> animal)");
+        assert_eq!(format!("{}", inheritance), "((&& cat dog) --> animal)");
     }
 }

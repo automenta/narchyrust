@@ -3,6 +3,7 @@ use crate::nal::nar::NAR;
 use crate::time::Time;
 use crate::concept::util::ConceptBuilder;
 use crate::truth::Truth;
+use crate::focus::Focus;
 
 #[test]
 fn test_deduction_truth_value() {
@@ -11,16 +12,15 @@ fn test_deduction_truth_value() {
     let mut nar = NAR::new(time, concept_builder);
 
     // Input beliefs
-    nar.input_string("<robin --> bird>.").unwrap();
-    nar.input_string("<bird --> animal>.").unwrap();
+    nar.input_string("(robin --> bird).").unwrap();
+    nar.input_string("(bird --> animal).").unwrap();
 
     // Run the reasoning cycle
-    for _ in 0..10 {
-        nar.cycle(None);
-    }
+    let belief = crate::parser::parse_narsese("(robin --> bird).").unwrap().remove(0);
+    nar.cycle(Some(Focus::new(belief.term().clone(), belief.truth().copied())));
 
     // Check if the conclusion is derived
-    let conclusion_term = crate::parser::parse_narsese("<robin --> animal>.").unwrap().remove(0).term().clone();
+    let conclusion_term = crate::parser::parse_narsese("(robin --> animal).").unwrap().remove(0).term().clone();
     let belief = nar.get_belief(&conclusion_term);
     assert!(belief.is_some());
 
